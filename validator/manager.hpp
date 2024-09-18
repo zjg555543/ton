@@ -33,6 +33,7 @@
 #include "rldp/rldp.h"
 #include "token-manager.h"
 #include "queue-size-counter.hpp"
+#include "validator-telemetry.hpp"
 #include "impl/candidates-buffer.hpp"
 
 #include <map>
@@ -338,6 +339,7 @@ class ValidatorManagerImpl : public ValidatorManager {
   }
   void add_temp_key(PublicKeyHash key, td::Promise<td::Unit> promise) override {
     temp_keys_.insert(key);
+    init_validator_telemetry();
     promise.set_value(td::Unit());
   }
   void del_permanent_key(PublicKeyHash key, td::Promise<td::Unit> promise) override {
@@ -346,6 +348,7 @@ class ValidatorManagerImpl : public ValidatorManager {
   }
   void del_temp_key(PublicKeyHash key, td::Promise<td::Unit> promise) override {
     temp_keys_.erase(key);
+    init_validator_telemetry();
     promise.set_value(td::Unit());
   }
 
@@ -726,6 +729,10 @@ class ValidatorManagerImpl : public ValidatorManager {
                                   CollationStats stats) override;
   void record_validate_query_stats(BlockIdExt block_id, double work_time, double cpu_work_time) override;
   RecordedBlockStats &new_block_stats_record(BlockIdExt block_id);
+
+  std::map<adnl::AdnlNodeIdShort, td::actor::ActorOwn<ValidatorTelemetry>> validator_telemetry_;
+
+  void init_validator_telemetry();
 };
 
 }  // namespace validator

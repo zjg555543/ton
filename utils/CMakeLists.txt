@@ -25,4 +25,8 @@ target_link_libraries(opcode-timing ton_crypto)
 target_include_directories(pack-viewer PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/..)
 
+add_executable(telemetry-collector telemetry-collector.cpp)
+target_include_directories(telemetry-collector PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>)
+target_link_libraries(telemetry-collector PRIVATE tonhttp rldp dht tonlib git terminal overlay)
+
 install(TARGETS generate-random-id RUNTIME DESTINATION bin)

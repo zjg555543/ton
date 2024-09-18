@@ -578,7 +578,12 @@ db.files.package.value package_id:int key:Bool temp:Bool firstblocks:(vector db.
 validator.groupMember public_key_hash:int256 adnl:int256 weight:long = engine.validator.GroupMember; 
 validator.group workchain:int shard:long catchain_seqno:int config_hash:int256 members:(vector validator.groupMember) = validator.Group; 
 validator.groupEx workchain:int shard:long vertical_seqno:int catchain_seqno:int config_hash:int256 members:(vector validator.groupMember) = validator.Group; 
-validator.groupNew workchain:int shard:long vertical_seqno:int last_key_block_seqno:int catchain_seqno:int config_hash:int256 members:(vector validator.groupMember) = validator.Group; 
+validator.groupNew workchain:int shard:long vertical_seqno:int last_key_block_seqno:int catchain_seqno:int config_hash:int256 members:(vector validator.groupMember) = validator.Group;
+
+validator.telemetryOverlayId zero_state_file_hash:int256 = validator.TelemetryOverlayId;
+validator.telemetry flags:# timestamp:double adnl_id:int256
+    node_version:string os_version:string
+    ram_size:long cpu_cores:int = validator.Telemetry;
 
 ---functions---
 

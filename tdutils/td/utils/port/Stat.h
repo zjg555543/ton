@@ -66,4 +66,6 @@ Status update_atime(CSlice path) TD_WARN_UNUSED_RESULT;
 
 Result<uint64> get_total_ram() TD_WARN_UNUSED_RESULT;
 
+Result<uint32> get_cpu_cores() TD_WARN_UNUSED_RESULT;
+
 }  // namespace td
