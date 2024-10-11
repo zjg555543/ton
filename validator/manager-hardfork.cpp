@@ -397,6 +397,8 @@ void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::
 
 void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
                                                          td::Promise<td::Ref<ShardState>> promise) {
+  td::PerfWarningTimer timer{"zjg-get_shard_state_from_db_short", 0.01};
+  LOG(INFO) << "zjg-get_shard_state_from_db_short";
   auto P =
       td::PromiseCreator::lambda([db = db_.get(), promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
         if (R.is_error()) {
@@ -503,6 +505,8 @@ void ValidatorManagerImpl::finished_wait_data(BlockIdExt block_id, td::Result<td
 }
 
 void ValidatorManagerImpl::get_block_handle(BlockIdExt id, bool force, td::Promise<BlockHandle> promise) {
+  td::PerfWarningTimer timer{"zjg-get_shard_state_from_db_short", 0.01};
+  LOG(INFO) << "zjg-get_shard_state_from_db_short";
   auto it = handles_.find(id);
   if (it != handles_.end()) {
     auto handle = it->second.lock();

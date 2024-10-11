@@ -151,6 +151,8 @@ void ArchiveManager::add_temp_file_short(FileReference ref_id, td::BufferSlice d
 }
 
 void ArchiveManager::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise) {
+  td::PerfWarningTimer timer{"zjg-get_handle", 0.01};
+  LOG(INFO) << "zjg-get_handle";
   auto f = get_file_desc_by_seqno(block_id.shard_full(), block_id.seqno(), false);
   if (f) {
     auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), block_id, idx = get_max_temp_file_desc_idx(),
@@ -168,6 +170,8 @@ void ArchiveManager::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> pr
 }
 
 void ArchiveManager::get_handle_cont(BlockIdExt block_id, PackageId idx, td::Promise<BlockHandle> promise) {
+  td::PerfWarningTimer timer{"zjg-get_handle_cont", 0.01};
+  LOG(INFO) << "zjg-get_handle_cont";
   if (idx.is_empty()) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "block handle not in db"));
     return;
@@ -189,6 +193,8 @@ void ArchiveManager::get_handle_cont(BlockIdExt block_id, PackageId idx, td::Pro
 }
 
 void ArchiveManager::get_handle_finish(BlockHandle handle, td::Promise<BlockHandle> promise) {
+  td::PerfWarningTimer timer{"zjg-get_handle_cont", 0.01};
+  LOG(INFO) << "zjg-get_handle_cont";
   auto f = get_file_desc_by_seqno(handle->id().shard_full(), handle->id().seqno(), false);
   if (!f) {
     promise.set_value(std::move(handle));

@@ -630,6 +630,8 @@ bool LiteQuery::request_mc_proof(BlockIdExt blkid, int mode) {
 }
 
 bool LiteQuery::request_mc_block_state(BlockIdExt blkid) {
+  td::PerfWarningTimer timer{"zjg-request_mc_block_state", 0.01};
+  LOG(INFO) << "zjg-request_mc_block_state";
   if (!blkid.is_masterchain() || !blkid.is_valid_full()) {
     return fatal_error("reference block must belong to the masterchain");
   }
@@ -661,6 +663,8 @@ bool LiteQuery::request_block_data_state(BlockIdExt blkid) {
 }
 
 bool LiteQuery::request_block_state(BlockIdExt blkid) {
+  td::PerfWarningTimer timer{"zjg-request_block_state", 0.01};
+  LOG(INFO) << "zjg-request_block_state";
   if (!blkid.is_valid_full()) {
     return fatal_error("invalid block id requested");
   }
@@ -683,6 +687,8 @@ bool LiteQuery::request_block_state(BlockIdExt blkid) {
 }
 
 bool LiteQuery::request_block_data(BlockIdExt blkid) {
+  td::PerfWarningTimer timer{"zjg-request_block_data", 0.01};
+  LOG(INFO) << "zjg-request_block_data";
   if (!blkid.is_valid_full()) {
     return fatal_error("invalid block id requested");
   }
@@ -789,6 +795,7 @@ bool LiteQuery::request_zero_state(BlockIdExt blkid) {
 }
 
 void LiteQuery::perform_getAccountState(BlockIdExt blkid, WorkchainId workchain, StdSmcAddress addr, int mode) {
+  td::PerfWarningTimer timer{"zjg-perform_getAccountState", 0.01};
   LOG(INFO) << "started a getAccountState(" << blkid.to_str() << ", " << workchain << ", " << addr.to_hex() << ", "
             << mode << ") liteserver query";
   if (blkid.id.workchain != masterchainId && blkid.id.workchain != workchain) {
