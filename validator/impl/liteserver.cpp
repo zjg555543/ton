@@ -522,6 +522,7 @@ void LiteQuery::perform_getState(BlockIdExt blkid) {
 }
 
 void LiteQuery::continue_getState(BlockIdExt blkid, Ref<ton::validator::ShardState> state) {
+  td::PerfWarningTimer timer{"zjg-continue_getState", 0.01};
   LOG(INFO) << "obtained data for getState(" << blkid.to_str() << ")";
   CHECK(state.not_null());
   auto res = state->serialize();
@@ -1068,6 +1069,7 @@ void LiteQuery::perform_getOneTransaction(BlockIdExt blkid, WorkchainId workchai
 }
 
 void LiteQuery::got_block_state(BlockIdExt blkid, Ref<ShardState> state) {
+  td::PerfWarningTimer timer{"zjg-got_block_state", 0.01};
   LOG(INFO) << "obtained data for getState(" << blkid.to_str() << ") needed by a liteserver query";
   CHECK(state.not_null());
   state_ = Ref<ShardStateQ>(std::move(state));
@@ -1077,6 +1079,7 @@ void LiteQuery::got_block_state(BlockIdExt blkid, Ref<ShardState> state) {
 }
 
 void LiteQuery::got_mc_block_state(BlockIdExt blkid, Ref<ShardState> state) {
+  td::PerfWarningTimer timer{"zjg-got_mc_block_state", 0.01};
   LOG(INFO) << "obtained data for getState(" << blkid.to_str() << ") needed by a liteserver query";
   CHECK(state.not_null());
   mc_state_ = Ref<MasterchainStateQ>(std::move(state));
@@ -1269,6 +1272,7 @@ bool LiteQuery::make_ancestor_block_proof(Ref<vm::Cell>& proof, Ref<vm::Cell> st
 }
 
 void LiteQuery::continue_getAccountState() {
+  td::PerfWarningTimer timer{"zjg-continue_getAccountState", 0.01};
   LOG(INFO) << "continue getAccountState() query";
   if (acc_workchain_ == masterchainId) {
     blk_id_ = base_blk_id_;
@@ -1304,6 +1308,7 @@ void LiteQuery::continue_getAccountState() {
 }
 
 void LiteQuery::finish_getAccountState(td::BufferSlice shard_proof) {
+  td::PerfWarningTimer timer{"zjg-finish_getAccountState", 0.01};
   LOG(INFO) << "completing getAccountState() query";
   Ref<vm::Cell> proof1, proof2;
   if (!make_state_root_proof(proof1)) {
