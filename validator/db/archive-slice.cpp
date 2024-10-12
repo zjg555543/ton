@@ -314,8 +314,8 @@ void ArchiveSlice::add_file_cont(size_t idx, FileReference ref_id, td::uint64 of
 }
 
 void ArchiveSlice::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise) {
-  td::PerfWarningTimer timer{"zjg-get_handle_finish", 0.01};
-  LOG(INFO) << "zjg-get_handle_finish";
+  td::PerfWarningTimer timer{"okxdebug-get_handle_finish", 0.01};
+  LOG(INFO) << "okxdebug-get_handle_finish";
   if (destroyed_) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "package already gc'd"));
     return;
