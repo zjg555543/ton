@@ -2962,8 +2962,7 @@ void ValidatorManagerImpl::log_end_validator_group_stats(validatorsession::EndVa
 }
 
 void ValidatorManagerImpl::get_block_handle_for_litequery(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise) {
-  LOG(INFO) << "ValidatorManagerImpl::get_block_handle_for_litequery. "
-            << "counter" << block_id.counter_;
+  LOG(INFO) << "ValidatorManagerImpl::get_block_handle_for_litequery. " << "counter" << block_id.counter_;
   get_block_handle(block_id, false,
                    [SelfId = actor_id(this), block_id, promise = std::move(promise),
                     allow_not_applied = opts_->nonfinal_ls_queries_enabled()](td::Result<BlockHandle> R) mutable {
@@ -3043,7 +3042,7 @@ void ValidatorManagerImpl::get_block_data_for_litequery(BlockIdExt block_id, td:
 
 void ValidatorManagerImpl::get_block_state_for_litequery(BlockIdExt block_id,
                                                          td::Promise<td::Ref<ShardState>> promise) {
-  LOG(INFO) << "get_block_state_for_litequery: manager";
+  LOG(INFO) << "get_block_state_for_litequery: manager" << "zjg, counter" << block_id.counter_;
   if (candidates_buffer_.empty()) {
     get_block_handle_for_litequery(
         block_id, [manager = actor_id(this), promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {

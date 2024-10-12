@@ -643,7 +643,14 @@ bool LiteQuery::request_mc_proof(BlockIdExt blkid, int mode) {
 
 bool LiteQuery::request_mc_block_state(BlockIdExt blkid) {
   td::PerfWarningTimer timer{"okxdebug-request_mc_block_state", 0.01};
-  LOG(INFO) << "okxdebug-request_mc_block_state";
+
+  SCOPE_EXIT(([start = std::chrono::steady_clock::now(), counter = counter_]() {
+    const auto end{std::chrono::steady_clock::now()};
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    LOG(INFO) << "got_block_state cost " << elapsed << "μs"
+              << ". counter" << counter;
+  }));
+
   if (!blkid.is_masterchain() || !blkid.is_valid_full()) {
     return fatal_error("reference block must belong to the masterchain");
   }
@@ -659,6 +666,12 @@ bool LiteQuery::request_mc_block_state(BlockIdExt blkid) {
           td::actor::send_closure(Self, &LiteQuery::abort_query,
                                   res.move_as_error_prefix("cannot load state for "s + blkid.to_str() + " : "));
         } else {
+          SCOPE_EXIT(([start = std::chrono::steady_clock::now(), counter = counter_]() {
+          const auto end{std::chrono::steady_clock::now()};
+          const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+          LOG(INFO) << "before got_mc_block_state cost " << elapsed << "μs"
+                    << ". counter" << counter;
+        }));
           td::actor::send_closure_later(Self, &LiteQuery::got_mc_block_state, blkid, res.move_as_ok());
         }
       });
@@ -1220,6 +1233,11 @@ void LiteQuery::got_zero_state(BlockIdExt blkid, td::BufferSlice zerostate) {
 }
 
 void LiteQuery::check_pending() {
+  SCOPE_EXIT(([start = std::chrono::steady_clock::now(), counter = counter_]() {
+        const auto end{std::chrono::steady_clock::now()};
+        const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+        LOG(INFO) << "check_pending cost " << elapsed << "μs" << ". counter" << counter;
+  }));
   CHECK(pending_ >= 0);
   if (!pending_) {
     if (!cont_set_) {
