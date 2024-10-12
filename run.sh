@@ -1,0 +1,2 @@
+rm flamegraph.svg  out.folded  out.perf  perf.data ton.log
+perf record -F 99 -a -g ./build/validator-engine/validator-engine -c /data/zjg/ton/data_ton/docker/volumes/ton-db/_data/config.json -C /data/zjg/ton/data_ton/docker/volumes/ton-db/_data/ton-global.config --db /data/zjg/ton/data_ton/docker/volumes/ton-db/_data --state-ttl 315360000 --archive-ttl 315360000 --threads 8 --verbosity 3 --block-ttl 315360000 > ton.log 2>&1
