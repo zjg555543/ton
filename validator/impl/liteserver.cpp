@@ -819,6 +819,7 @@ void LiteQuery::perform_getAccountState(BlockIdExt blkid, WorkchainId workchain,
     LOG(INFO) << "perform_getAccountState cost " << elapsed << "μs"
               << ". counter" << c;
   }));
+  blkid.counter_ = c;
   if (blkid.id.workchain != masterchainId && blkid.id.workchain != workchain) {
     fatal_error("reference block for a getAccountState() must belong to the masterchain");
     return;

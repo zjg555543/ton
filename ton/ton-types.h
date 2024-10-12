@@ -224,6 +224,7 @@ struct BlockIdExt {
   BlockId id;
   RootHash root_hash;
   FileHash file_hash;
+  std::uint64_t counter_;
   BlockIdExt(WorkchainId workchain, ShardId shard, BlockSeqno seqno, const RootHash& root_hash,
              const FileHash& file_hash)
       : id{workchain, shard, seqno}, root_hash(root_hash), file_hash(file_hash) {
