@@ -62,6 +62,8 @@ td::int32 get_tl_tag(td::Slice slice) {
   return slice.size() >= 4 ? td::as<td::int32>(slice.data()) : -1;
 }
 
+int global_count = 0;
+
 void LiteQuery::run_query(td::BufferSlice data, td::actor::ActorId<ValidatorManager> manager,
                           td::actor::ActorId<LiteServerCache> cache, td::Promise<td::BufferSlice> promise) {
   td::actor::create_actor<LiteQuery>("litequery", std::move(data), std::move(manager), std::move(cache),
@@ -526,6 +528,7 @@ void LiteQuery::perform_getState(BlockIdExt blkid) {
 }
 
 void LiteQuery::continue_getState(BlockIdExt blkid, Ref<ton::validator::ShardState> state) {
+  td::PerfWarningTimer timer{"okxdebug-continue_getState", 0.01};
   LOG(INFO) << "obtained data for getState(" << blkid.to_str() << ")";
   CHECK(state.not_null());
   auto res = state->serialize();
@@ -639,6 +642,8 @@ bool LiteQuery::request_mc_proof(BlockIdExt blkid, int mode) {
 }
 
 bool LiteQuery::request_mc_block_state(BlockIdExt blkid) {
+  td::PerfWarningTimer timer{"okxdebug-request_mc_block_state", 0.01};
+  LOG(INFO) << "okxdebug-request_mc_block_state";
   if (!blkid.is_masterchain() || !blkid.is_valid_full()) {
     return fatal_error("reference block must belong to the masterchain");
   }
@@ -676,6 +681,8 @@ bool LiteQuery::request_block_data_state(BlockIdExt blkid) {
 }
 
 bool LiteQuery::request_block_state(BlockIdExt blkid) {
+  td::PerfWarningTimer timer{"okxdebug-request_block_state", 0.01};
+  LOG(INFO) << "okxdebug-request_block_state";
   if (!blkid.is_valid_full()) {
     return fatal_error("invalid block id requested");
   }
@@ -698,6 +705,8 @@ bool LiteQuery::request_block_state(BlockIdExt blkid) {
 }
 
 bool LiteQuery::request_block_data(BlockIdExt blkid) {
+  td::PerfWarningTimer timer{"okxdebug-request_block_data", 0.01};
+  LOG(INFO) << "okxdebug-request_block_data";
   if (!blkid.is_valid_full()) {
     return fatal_error("invalid block id requested");
   }
@@ -805,6 +814,7 @@ bool LiteQuery::request_zero_state(BlockIdExt blkid) {
 static std::atomic_uint64_t counter;
 
 void LiteQuery::perform_getAccountState(BlockIdExt blkid, WorkchainId workchain, StdSmcAddress addr, int mode) {
+  td::PerfWarningTimer timer{"okxdebug-perform_getAccountState", 0.01};
   auto c = counter.fetch_add(1, std::memory_order_seq_cst);
   LOG(INFO) << "started a getAccountState(" << blkid.to_str() << ", " << workchain << ", " << addr.to_hex() << ", "
             << mode << ") liteserver query."
@@ -1117,6 +1127,9 @@ void LiteQuery::got_block_state(BlockIdExt blkid, Ref<ShardState> state) {
     LOG(INFO) << "got_block_state cost " << elapsed << "μs"
               << ". counter" << counter;
   }));
+  td::PerfWarningTimer timer{"okxdebug-got_block_state", 0.01};
+  LOG(INFO) << "obtained data for getState(" << blkid.to_str() << ") needed by a liteserver query";
+
   CHECK(state.not_null());
   state_ = Ref<ShardStateQ>(std::move(state));
   CHECK(state_.not_null());
@@ -1133,6 +1146,9 @@ void LiteQuery::got_mc_block_state(BlockIdExt blkid, Ref<ShardState> state) {
     LOG(INFO) << "got_mc_block_state cost " << elapsed << "μs"
               << ". counter" << counter;
   }));
+  td::PerfWarningTimer timer{"okxdebug-got_mc_block_state", 0.01};
+  LOG(INFO) << "obtained data for getState(" << blkid.to_str() << ") needed by a liteserver query";
+
   CHECK(state.not_null());
   mc_state_ = Ref<MasterchainStateQ>(std::move(state));
   CHECK(mc_state_.not_null());
@@ -1354,6 +1370,9 @@ void LiteQuery::continue_getAccountState() {
     LOG(INFO) << "continue_getAccountState cost " << elapsed << "μs"
               << ". counter" << counter;
   }));
+  td::PerfWarningTimer timer{"okxdebug-continue_getAccountState", 0.01};
+  LOG(INFO) << "continue getAccountState() query";
+
   if (acc_workchain_ == masterchainId) {
     blk_id_ = base_blk_id_;
     block_ = mc_block_;
@@ -1400,6 +1419,9 @@ void LiteQuery::finish_getAccountState(td::BufferSlice shard_proof) {
     LOG(INFO) << "finish_getAccountState cost " << elapsed << "μs"
               << ". counter" << counter;
   }));
+  td::PerfWarningTimer timer{"okxdebug-finish_getAccountState", 0.01};
+  LOG(INFO) << "completing getAccountState() query";
+
   Ref<vm::Cell> proof1, proof2;
   if (!make_state_root_proof(proof1)) {
     return;

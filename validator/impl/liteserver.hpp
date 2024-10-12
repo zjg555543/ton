@@ -39,6 +39,7 @@ class LiteQuery : public td::actor::Actor {
   td::actor::ActorId<ton::validator::ValidatorManager> manager_;
   td::actor::ActorId<LiteServerCache> cache_;
   td::Timestamp timeout_;
+  string query_index_;
   td::Promise<td::BufferSlice> promise_;
 
   td::Promise<std::tuple<td::Ref<vm::CellSlice>, UnixTime, LogicalTime, std::unique_ptr<block::ConfigInfo>>>

@@ -330,6 +330,8 @@ void ArchiveSlice::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> prom
     LOG(INFO) << "ArchiveSlice::get_handle cost" << elapsed << "μs"
               << ". counter" << counter;
   }));
+  td::PerfWarningTimer timer{"okxdebug-get_handle_finish", 0.01};
+  LOG(INFO) << "okxdebug-get_handle_finish";
 
   if (destroyed_) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "package already gc'd"));
