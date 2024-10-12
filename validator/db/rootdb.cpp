@@ -332,6 +332,11 @@ void RootDb::store_block_handle(BlockHandle handle, td::Promise<td::Unit> promis
 }
 
 void RootDb::get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise) {
+  LOG(INFO) << "RootDb::get_block_handle. start time: "
+            << std::chrono::duration_cast<std::chrono::microseconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+                   .count()
+            << ". counter" << id.counter_;
   td::actor::send_closure(archive_db_, &ArchiveManager::get_handle, id, std::move(promise));
 }
 
