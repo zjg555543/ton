@@ -416,7 +416,7 @@ void ArchiveMover::got_handle(BlockHandle handle) {
         S.ensure();
         td::actor::send_closure(SelfId, &ArchiveMover::got_state, td::Ref<MasterchainState>{S.move_as_ok()});
       });
-  td::actor::send_closure(cell_db_, &CellDb::load_cell, handle_->state(), std::move(P));
+  td::actor::send_closure(cell_db_, &CellDb::load_cell, handle_->state(), std::move(P), 0);
 }
 
 void ArchiveMover::got_state(td::Ref<MasterchainState> state) {
