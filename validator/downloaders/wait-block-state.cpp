@@ -292,7 +292,7 @@ void WaitBlockState::force_read_from_db() {
       td::actor::send_closure(SelfId, &WaitBlockState::got_state_from_db, R.move_as_ok());
     }
   });
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle_, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle_, std::move(P), 0);
 }
 
 void WaitBlockState::got_state_from_net(td::BufferSlice data) {

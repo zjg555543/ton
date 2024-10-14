@@ -3067,7 +3067,7 @@ void ValidatorManagerImpl::get_block_state_for_litequery(BlockIdExt block_id,
                                     td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db,
                                                                   std::move(handle), std::move(promise), 0);
                                   });
-        });
+        }, 0);
   }
 }
 
