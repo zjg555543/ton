@@ -439,11 +439,17 @@ void CellDbIn::migrate_cells() {
 }
 
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise) {
+  auto now = std::chrono::system_clock::now();
+  auto timestamp_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+  LOG(INFO) << "load_cell: " << " b_count" << timestamp_ns  << ", 1";
   if (!started_) {
+    LOG(INFO) << "load_cell: " << " b_count" << timestamp_ns  << ", 2";
     td::actor::send_closure(cell_db_, &CellDbIn::load_cell, hash, std::move(promise));
   } else {
+    LOG(INFO) << "load_cell: " << " b_count" << timestamp_ns  << ", 3";
     auto P = td::PromiseCreator::lambda(
-        [cell_db_in = cell_db_.get(), hash, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
+        [cell_db_in = cell_db_.get(), hash, promise = std::move(promise), timestamp_ns](td::Result<td::Ref<vm::DataCell>> R) mutable {
+          LOG(INFO) << "load_cell: " << " b_count" << timestamp_ns  << ", 4";
           if (R.is_error()) {
             td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise));
           } else {
@@ -451,6 +457,7 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
           }
         });
     boc_->load_cell_async(hash.as_slice(), async_executor, std::move(P));
+    LOG(INFO) << "load_cell: " << " b_count" << timestamp_ns  << ", 5";
   }
 }
 
