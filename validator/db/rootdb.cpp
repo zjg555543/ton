@@ -259,7 +259,7 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
     }
     LOG(INFO) << "get_block_state: " << " b_count" << now  << ", 3";
     auto P =
-        td::PromiseCreator::lambda([handle, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
+        td::PromiseCreator::lambda([handle, promise = std::move(promise), now](td::Result<td::Ref<vm::DataCell>> R) mutable {
           if (R.is_error()) {
             promise.set_error(R.move_as_error());
           } else {
