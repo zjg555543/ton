@@ -266,16 +266,17 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
             auto S = create_shard_state(handle->id(), R.move_as_ok());
             S.ensure();
             promise.set_value(S.move_as_ok());
+             LOG(INFO) << "get_block_state, counter" << counter_  << ", 6";
           }
         });
     LOG(INFO) << "get_block_state, counter" << counter_  << ", 4";
     td::actor::send_closure(cell_db_, &CellDb::load_cell, handle->state(), std::move(P), counter_);
     LOG(INFO) << "get_block_state, counter" << counter_  << ", 4-1";
   } else {
-    LOG(INFO) << "get_block_state, counter" << counter_  << ", 6-0";
+    LOG(INFO) << "get_block_state, counter" << counter_  << ", 7-0";
     promise.set_error(td::Status::Error(ErrorCode::notready, "state not in db"));
   }
-  LOG(INFO) << "get_block_state, counter" << counter_  << ", 6";
+  LOG(INFO) << "get_block_state, counter" << counter_  << ", 7";
 }
 
 void RootDb::get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) {
