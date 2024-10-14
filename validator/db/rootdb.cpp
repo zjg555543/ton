@@ -244,34 +244,33 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
     });
     td::actor::send_closure(cell_db_, &CellDb::store_cell, handle->id(), state->root_cell(), std::move(P));
   } else {
-    get_block_state(handle, std::move(promise));
+    get_block_state(handle, std::move(promise), 0);
   }
 }
 
-void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
-  auto now = std::chrono::system_clock::now();
-  auto timestamp_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
-  LOG(INFO) << "timestamp get_block_state: " << timestamp_ns  << ", 1";
+void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) {
+  LOG(INFO) << "timestamp get_block_state: " << counter_  << ", 1";
   if (handle->inited_state_boc()) {
-    LOG(INFO) << "timestamp get_block_state: " << timestamp_ns << ", 2";
+    LOG(INFO) << "timestamp get_block_state: " << counter_ << ", 2";
     if (handle->deleted_state_boc()) {
       promise.set_error(td::Status::Error(ErrorCode::error, "state already gc'd"));
       return;
     }
-    LOG(INFO) << "timestamp get_block_state: " << timestamp_ns  << ", 3";
+    LOG(INFO) << "timestamp get_block_state: " << counter_  << ", 3";
     auto P =
-        td::PromiseCreator::lambda([handle, promise = std::move(promise), timestamp_ns](td::Result<td::Ref<vm::DataCell>> R) mutable {
+        td::PromiseCreator::lambda([handle, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
           if (R.is_error()) {
             promise.set_error(R.move_as_error());
           } else {
-            LOG(INFO) << "timestamp get_block_state: " << timestamp_ns  << ", 5";
+            LOG(INFO) << "timestamp get_block_state: " << counter_  << ", 5";
             auto S = create_shard_state(handle->id(), R.move_as_ok());
             S.ensure();
             promise.set_value(S.move_as_ok());
           }
         });
-    LOG(INFO) << "timestamp get_block_state: " << timestamp_ns  << ", 4";
+    LOG(INFO) << "timestamp get_block_state: " << counter_  << ", 4";
     td::actor::send_closure(cell_db_, &CellDb::load_cell, handle->state(), std::move(P));
+    LOG(INFO) << "timestamp get_block_state: " << counter_  << ", 4-1";
   } else {
     promise.set_error(td::Status::Error(ErrorCode::notready, "state not in db"));
   }

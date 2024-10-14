@@ -61,7 +61,7 @@ class RootDb : public Db {
 
   void store_block_state(BlockHandle handle, td::Ref<ShardState> state,
                          td::Promise<td::Ref<ShardState>> promise) override;
-  void get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) override;
+  void get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise,  std::uint64_t counter_) override;
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) override;
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise) override;
 

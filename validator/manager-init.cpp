@@ -519,7 +519,7 @@ void ValidatorManagerMasterchainStarter::got_truncate_block_handle(BlockHandle h
     td::actor::send_closure(SelfId, &ValidatorManagerMasterchainStarter::got_truncate_state,
                             td::Ref<MasterchainState>{R.move_as_ok()});
   });
-  td::actor::send_closure(db_, &Db::get_block_state, handle_, std::move(P));
+  td::actor::send_closure(db_, &Db::get_block_state, handle_, std::move(P), 5);
 }
 
 void ValidatorManagerMasterchainStarter::got_truncate_state(td::Ref<MasterchainState> state) {
