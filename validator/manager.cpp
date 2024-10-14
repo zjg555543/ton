@@ -3042,15 +3042,17 @@ void ValidatorManagerImpl::get_block_data_for_litequery(BlockIdExt block_id, td:
 
 void ValidatorManagerImpl::get_block_state_for_litequery(BlockIdExt block_id,
                                                          td::Promise<td::Ref<ShardState>> promise) {
-  LOG(INFO) << "get_block_state_for_litequery: manager" << "zjg, counter" << block_id.counter_;
+  LOG(INFO) << "get_block_state_for_litequery: manager" << " counter" << block_id.counter_  << ", 1";
   if (candidates_buffer_.empty()) {
+    LOG(INFO) << "get_block_state_for_litequery: manager" << " counter" << block_id.counter_  << ", 2";
     get_block_handle_for_litequery(
-        block_id, [manager = actor_id(this), promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {
-          TRY_RESULT_PROMISE(promise, handle, std::move(R));
-          td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db, std::move(handle),
-                                        std::move(promise));
-        });
+      block_id, [manager = actor_id(this), promise = std::move(promise), block_id](td::Result<ConstBlockHandle> R) mutable {
+        TRY_RESULT_PROMISE(promise, handle, std::move(R));
+        td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db, std::move(handle),
+                                      std::move(promise));
+    });
   } else {
+    LOG(INFO) << "get_block_state_for_litequery: manager" << " counter" << block_id.counter_ << ", 3";
     td::actor::send_closure(
         candidates_buffer_, &CandidatesBuffer::get_block_state, block_id,
         [manager = actor_id(this), promise = std::move(promise), block_id](td::Result<td::Ref<ShardState>> R) mutable {
