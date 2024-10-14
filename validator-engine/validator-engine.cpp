@@ -3684,7 +3684,7 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_getShardO
               } else {
                 promise.set_value(res.move_as_ok());
               }
-            });
+            }, 0);
       });
 }
 

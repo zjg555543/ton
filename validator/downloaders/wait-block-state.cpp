@@ -76,7 +76,7 @@ void WaitBlockState::start() {
         td::actor::send_closure(SelfId, &WaitBlockState::got_state_from_db, R.move_as_ok());
       }
     });
-    td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle_, std::move(P));
+    td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle_, std::move(P), 0);
   } else if (handle_->id().id.seqno == 0 && next_static_file_attempt_.is_in_past()) {
     next_static_file_attempt_ = td::Timestamp::in(60.0);
     // id.file_hash contrains correct file hash of zero state

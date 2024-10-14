@@ -119,7 +119,7 @@ void AsyncStateSerializer::request_masterchain_state() {
                               });
     }
   });
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, masterchain_handle_, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, masterchain_handle_, std::move(P), 0);
 }
 
 void AsyncStateSerializer::request_shard_state(BlockIdExt shard) {
@@ -373,7 +373,7 @@ void AsyncStateSerializer::got_shard_handle(BlockHandle handle) {
         }
       });
 
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P), 0);
 }
 
 void AsyncStateSerializer::got_shard_state(BlockHandle handle, td::Ref<ShardState> state,
