@@ -257,7 +257,6 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
       promise.set_error(td::Status::Error(ErrorCode::error, "state already gc'd"));
       return;
     }
-    int query_count = 
     // LOG(INFO) << "get_block_state: " << " b_count" << now  << ", 3";
     auto P =
         td::PromiseCreator::lambda([handle, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {

@@ -3046,7 +3046,7 @@ void ValidatorManagerImpl::get_block_state_for_litequery(BlockIdExt block_id,
   if (candidates_buffer_.empty()) {
     LOG(INFO) << "get_block_state_for_litequery: manager" << " counter" << block_id.counter_  << ", 2";
     get_block_handle_for_litequery(
-      block_id, [manager = actor_id(this), promise = std::move(promise), block_id](td::Result<ConstBlockHandle> R) mutable {
+      block_id, [manager = actor_id(this), promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {
         TRY_RESULT_PROMISE(promise, handle, std::move(R));
         td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db, std::move(handle),
                                       std::move(promise));
