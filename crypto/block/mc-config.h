@@ -675,7 +675,7 @@ class Config {
   }
   Config(Ref<vm::Cell> config_root, const td::Bits256& config_addr = td::Bits256::zero(), int _mode = 0);
   td::Status unpack_wrapped(Ref<vm::CellSlice> config_csr, std::uint64_t counter_ = 0);
-  td::Status unpack(Ref<vm::CellSlice> config_csr, std::uint64_t counter_ = 0));
+  td::Status unpack(Ref<vm::CellSlice> config_csr, std::uint64_t counter_ = 0);
   td::Status unpack_wrapped();
   td::Status unpack(std::uint64_t counter_ = 0);
 };
