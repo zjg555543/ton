@@ -264,9 +264,12 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
           } else {
             LOG(INFO) << "get_block_state, counter" << counter_  << ", 5";
             auto S = create_shard_state(handle->id(), R.move_as_ok());
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 5-1";
             S.ensure();
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 5-2";
             promise.set_value(S.move_as_ok());
-             LOG(INFO) << "get_block_state, counter" << counter_  << ", 6";
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 5-3";
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 6";
           }
         });
     LOG(INFO) << "get_block_state, counter" << counter_  << ", 4";
