@@ -452,6 +452,7 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
             td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise));
             LOG(INFO) << " load_cell: counter" << counter_  << ", 6";
           } else {
+            LOG(INFO) << " load_cell: counter" << counter_  << ", 7-0";
             promise.set_result(R.move_as_ok());
             LOG(INFO) << " load_cell: counter" << counter_  << ", 7";
           }
