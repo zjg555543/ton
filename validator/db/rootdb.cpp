@@ -230,7 +230,7 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
         handle->set_state_root_hash(root_hash);
         handle->set_state_boc();
 
-        auto S = create_shard_state(handle->id(), R.move_as_ok());
+        auto S = create_shard_state(handle->id(), R.move_as_ok(), 0);
         S.ensure();
 
         auto P = td::PromiseCreator::lambda(
@@ -263,7 +263,7 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
             promise.set_error(R.move_as_error());
           } else {
             LOG(INFO) << "get_block_state, counter" << counter_  << ", 5";
-            auto S = create_shard_state(handle->id(), R.move_as_ok());
+            auto S = create_shard_state(handle->id(), R.move_as_ok(), counter_);
             LOG(INFO) << "get_block_state, counter" << counter_  << ", 5-1";
             S.ensure();
             LOG(INFO) << "get_block_state, counter" << counter_  << ", 5-2";
