@@ -837,7 +837,7 @@ bool ValidateQuery::try_unpack_mc_state() {
         block::ConfigInfo::needShardHashes | block::ConfigInfo::needLibraries | block::ConfigInfo::needValidatorSet |
             block::ConfigInfo::needWorkchainInfo | block::ConfigInfo::needStateExtraRoot |
             block::ConfigInfo::needCapabilities | block::ConfigInfo::needPrevBlocks |
-            (is_masterchain() ? block::ConfigInfo::needAccountsRoot | block::ConfigInfo::needSpecialSmc : 0));
+            (is_masterchain() ? block::ConfigInfo::needAccountsRoot | block::ConfigInfo::needSpecialSmc : 0), 0);
     if (res.is_error()) {
       return fatal_error(-666, "cannot extract configuration from reference masterchain state "s + mc_blkid_.to_str() +
                                    " : " + res.move_as_error().to_string());
@@ -1317,7 +1317,7 @@ bool ValidateQuery::compute_next_state() {
         state_root_, block::ConfigInfo::needShardHashes | block::ConfigInfo::needLibraries |
                          block::ConfigInfo::needValidatorSet | block::ConfigInfo::needWorkchainInfo |
                          block::ConfigInfo::needStateExtraRoot | block::ConfigInfo::needAccountsRoot |
-                         block::ConfigInfo::needSpecialSmc | block::ConfigInfo::needCapabilities);
+                         block::ConfigInfo::needSpecialSmc | block::ConfigInfo::needCapabilities, 0);
     if (r_config_info.is_error()) {
       return reject_query("cannot extract configuration from new masterchain state "s + mc_blkid_.to_str() + " : " +
                           r_config_info.error().to_string());

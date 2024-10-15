@@ -979,7 +979,7 @@ void LiteQuery::continue_getLibraries(Ref<ton::validator::MasterchainState> mc_s
   mc_state_ = Ref<MasterchainStateQ>(std::move(mc_state));
   CHECK(mc_state_.not_null());
 
-  auto rconfig = block::ConfigInfo::extract_config(mc_state_->root_cell(), block::ConfigInfo::needLibraries);
+  auto rconfig = block::ConfigInfo::extract_config(mc_state_->root_cell(), block::ConfigInfo::needLibraries, 0);
   if (rconfig.is_error()) {
     fatal_error("cannot extract library list block configuration from masterchain state");
     return;
@@ -1358,7 +1358,7 @@ bool LiteQuery::make_shard_info_proof(Ref<vm::Cell>& proof, BlockIdExt& blkid, A
 
 bool LiteQuery::make_ancestor_block_proof(Ref<vm::Cell>& proof, Ref<vm::Cell> state_root, const BlockIdExt& old_blkid) {
   vm::MerkleProofBuilder mpb{std::move(state_root)};
-  auto rconfig = block::ConfigInfo::extract_config(mpb.root(), block::ConfigInfo::needPrevBlocks);
+  auto rconfig = block::ConfigInfo::extract_config(mpb.root(), block::ConfigInfo::needPrevBlocks, 0);
   if (rconfig.is_error()) {
     return fatal_error(
         "cannot extract previous block configuration from masterchain state while constructing Merkle proof for "s +
@@ -1453,7 +1453,7 @@ void LiteQuery::finish_getAccountState(td::BufferSlice shard_proof) {
   vm::AugmentedDictionary accounts_dict{vm::load_cell_slice_ref(sstate.accounts), 256, block::tlb::aug_ShardAccounts};
   auto acc_csr = accounts_dict.lookup(acc_addr_);
   if (mode_ & 0x80000000) {
-    auto config = block::ConfigInfo::extract_config(mc_state_->root_cell(), 0xFFFF);
+    auto config = block::ConfigInfo::extract_config(mc_state_->root_cell(), 0xFFFF, 0);
     if (config.is_error()) {
       fatal_error(config.move_as_error());
       return;
@@ -1637,7 +1637,7 @@ void LiteQuery::finish_runSmcMethod(td::BufferSlice shard_proof, td::BufferSlice
   // **** INIT VM ****
   auto r_config = block::ConfigInfo::extract_config(mc_state_->root_cell(), block::ConfigInfo::needLibraries |
                                                                                 block::ConfigInfo::needCapabilities |
-                                                                                block::ConfigInfo::needPrevBlocks);
+                                                                                block::ConfigInfo::needPrevBlocks, 0);
   if (r_config.is_error()) {
     fatal_error(r_config.move_as_error());
     return;
@@ -2030,7 +2030,7 @@ void LiteQuery::continue_getConfigParams(int mode, std::vector<int> param_list) 
     }
     cfg = res.move_as_ok();
   } else {
-    auto res = block::ConfigInfo::extract_config(mpb.root(), mode);
+    auto res = block::ConfigInfo::extract_config(mpb.root(), mode, 0);
     if (res.is_error()) {
       fatal_error(res.move_as_error());
       return;
