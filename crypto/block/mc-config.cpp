@@ -214,7 +214,9 @@ td::Status ConfigInfo::unpack(std::uint64_t counter_) {
     LOG(INFO) << "unpack, counter" << counter_  << ", 17";
   }
   // unpack configuration
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1";
   TRY_STATUS(Config::unpack_wrapped(std::move(extra_info.config)));
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-2";
   // unpack previous masterchain block collection
   std::unique_ptr<vm::AugmentedDictionary> prev_blocks_dict =
       std::make_unique<vm::AugmentedDictionary>(extra_info.r1.prev_blocks, 32, block::tlb::aug_OldMcBlocksInfo);
