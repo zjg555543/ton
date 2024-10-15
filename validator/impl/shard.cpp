@@ -368,7 +368,7 @@ td::Result<Ref<MasterchainStateQ>> MasterchainStateQ::fetch(const BlockIdExt& _i
   LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 3";
   Ref<MasterchainStateQ> res{true, _id, std::move(_root), std::move(_data)};
   LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 4";
-  td::Status err = res.unique_write().mc_init();
+  td::Status err = res.unique_write().mc_init(_id.counter_);
   LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 5";
   if (err.is_error()) {
     LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 6";
@@ -379,12 +379,16 @@ td::Result<Ref<MasterchainStateQ>> MasterchainStateQ::fetch(const BlockIdExt& _i
   }
 }
 
-td::Status MasterchainStateQ::mc_init() {
+td::Status MasterchainStateQ::mc_init(std::uint64_t counter_) {
+  LOG(INFO) << "mc_init, counter" << counter_  << ", 1";
   auto err = init();
   if (err.is_error()) {
     return err;
   }
-  return mc_reinit();
+  LOG(INFO) << "mc_init, counter" << counter_  << ", 2";
+  auto a = mc_reinit();
+  LOG(INFO) << "mc_init, counter" << counter_  << ", 3";
+  return a;
 }
 
 td::Status MasterchainStateQ::mc_reinit() {
