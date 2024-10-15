@@ -766,8 +766,8 @@ class ConfigInfo : public Config, public ShardConfig {
 
  private:
   ConfigInfo(Ref<vm::Cell> mc_state_root, int _mode = 0);
-  td::Status unpack_wrapped();
-  td::Status unpack();
+  td::Status unpack_wrapped(std::uint64_t counter_ = 0);
+  td::Status unpack(std::uint64_t counter_ = 0);
   void reset_mc_hash();
   void cleanup();
 };
