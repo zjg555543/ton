@@ -86,6 +86,7 @@ td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Buff
 
 td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Ref<vm::DataCell> root_cell, std::uint64_t counter_) {
   LOG(INFO) << "create_shard_state, counter" << counter_  << ", 1";
+  block_id.counter_ = counter_;
   auto res = ShardStateQ::fetch(block_id, {}, std::move(root_cell));
   LOG(INFO) << "create_shard_state, counter" << counter_  << ", 2";
   if (res.is_error()) {

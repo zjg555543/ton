@@ -62,19 +62,27 @@ ShardStateQ::ShardStateQ(const BlockIdExt& _id, Ref<vm::Cell> _root, td::BufferS
 }
 
 td::Result<Ref<ShardStateQ>> ShardStateQ::fetch(const BlockIdExt& _id, td::BufferSlice _data, Ref<vm::Cell> _root) {
+  LOG(INFO) << "fetch, counter" << _id.counter_  << ", 1";
   if (_id.is_masterchain()) {
+    LOG(INFO) << "fetch, counter" << _id.counter_  << ", 2";
     auto res = MasterchainStateQ::fetch(_id, std::move(_data), std::move(_root));
     if (res.is_error()) {
+      LOG(INFO) << "fetch, counter" << _id.counter_  << ", 3";
       return res.move_as_error();
     } else {
+      LOG(INFO) << "fetch, counter" << _id.counter_  << ", 4";
       return Ref<ShardStateQ>{res.move_as_ok()};
     }
   }
+  LOG(INFO) << "fetch, counter" << _id.counter_  << ", 5";
   Ref<ShardStateQ> res{true, _id, std::move(_root), std::move(_data)};
+  LOG(INFO) << "fetch, counter" << _id.counter_  << ", 6";
   td::Status err = res.unique_write().init();
   if (err.is_error()) {
+    LOG(INFO) << "fetch, counter" << _id.counter_  << ", 7";
     return err;
   } else {
+    LOG(INFO) << "fetch, counter" << _id.counter_  << ", 8";
     return std::move(res);
   }
 }
