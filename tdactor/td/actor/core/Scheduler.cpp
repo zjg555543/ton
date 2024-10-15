@@ -67,6 +67,8 @@ Scheduler::Scheduler(std::shared_ptr<SchedulerGroupInfo> scheduler_group_info, S
     scheduler_group_info_->iocp.init();
   }
 #endif
+  LOG(INFO) << "yus scheduler create " << "id " << id.value() << "count " << cpu_threads_count << "scheduler_group_ "
+            << scheduler_group_info_->active_scheduler_count << " " << scheduler_group_info_->schedulers.size();
 }
 
 Scheduler::~Scheduler() {
