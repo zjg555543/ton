@@ -85,10 +85,14 @@ td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Buff
 }
 
 td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Ref<vm::DataCell> root_cell) {
+  LOG(INFO) << "create_shard_state, counter" << block_id.counter_  << ", 1";
   auto res = ShardStateQ::fetch(block_id, {}, std::move(root_cell));
+  LOG(INFO) << "create_shard_state, counter" << block_id.counter_  << ", 2";
   if (res.is_error()) {
+    LOG(INFO) << "create_shard_state, counter" << block_id.counter_  << ", 3";
     return res.move_as_error();
   } else {
+    LOG(INFO) << "create_shard_state, counter" << block_id.counter_  << ", 4";
     return td::Ref<ShardState>{res.move_as_ok()};
   }
 }
