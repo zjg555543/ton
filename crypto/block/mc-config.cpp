@@ -286,7 +286,9 @@ td::Status Config::unpack(std::uint64_t counter_) {
   LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-2";
   if (mode & needValidatorSet) {
     LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-3";
-    auto vset_res = unpack_validator_set(get_config_param(35, 34), 0);
+    auto c = get_config_param(35, 34);
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-3-1";
+    auto vset_res = unpack_validator_set(c, 0);
     LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-4";
     if (vset_res.is_error()) {
       return vset_res.move_as_error();
