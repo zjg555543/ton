@@ -87,8 +87,10 @@ td::Result<Ref<ShardStateQ>> ShardStateQ::fetch(const BlockIdExt& _id, td::Buffe
   }
 }
 
-td::Status ShardStateQ::init() {
+td::Status ShardStateQ::init(std::uint64_t counter_) {
+  LOG(INFO) << "init, counter" << counter_  << ", 1";
   if (root.is_null()) {
+    LOG(INFO) << "init, counter" << counter_  << ", 2";
     if (data.empty()) {
       return td::Status::Error(
           -668, "cannot initialize shardchain state without either a root cell or a BufferSlice with serialized data");
@@ -96,50 +98,62 @@ td::Status ShardStateQ::init() {
 #if LAZY_STATE_DESERIALIZE
     vm::StaticBagOfCellsDbLazy::Options options;
     options.check_crc32c = true;
+    LOG(INFO) << "init, counter" << counter_  << ", 3";
     auto res = vm::StaticBagOfCellsDbLazy::create(td::BufferSliceBlobView::create(data.clone()), options);
     if (res.is_error()) {
       return res.move_as_error();
     }
+    LOG(INFO) << "init, counter" << counter_  << ", 4";
     auto boc = res.move_as_ok();
     auto rc = boc->get_root_count();
     if (rc.is_error()) {
       return rc.move_as_error();
     }
+    LOG(INFO) << "init, counter" << counter_  << ", 5";
     if (rc.move_as_ok() != 1) {
       return td::Status::Error(-668, "shardchain state BoC is invalid");
     }
     auto res3 = boc->get_root_cell(0);
     bocs_.clear();
     bocs_.push_back(std::move(boc));
+    LOG(INFO) << "init, counter" << counter_  << ", 6";
 #else
     auto res3 = vm::std_boc_deserialize(data.as_slice());
+    LOG(INFO) << "init, counter" << counter_  << ", 7";
 #endif
     if (res3.is_error()) {
       return res3.move_as_error();
     }
+    LOG(INFO) << "init, counter" << counter_  << ", 8";
     root = res3.move_as_ok();
     if (root.is_null()) {
       return td::Status::Error(-668, "cannot extract root cell out of a shardchain state BoC");
     }
+    LOG(INFO) << "init, counter" << counter_  << ", 9";
   }
+  LOG(INFO) << "init, counter" << counter_  << ", 10";
   rhash = root->get_hash().bits();
   block::gen::ShardStateUnsplit::Record info;
   if (!tlb::unpack_cell(root, info)) {
     return td::Status::Error(-668,
                              "shardchain state for block "s + blkid.id.to_str() + " does not contain a valid header");
   }
+  LOG(INFO) << "init, counter" << counter_  << ", 11";
   lt = info.gen_lt;
   utime = info.gen_utime;
   global_id_ = info.global_id;
   before_split_ = info.before_split;
   block::ShardId id{info.shard_id};
   ton::BlockId hdr_id{ton::ShardIdFull(id), info.seq_no};
+  LOG(INFO) << "init, counter" << counter_  << ", 12";
   if (!id.is_valid() || get_shard() != ton::ShardIdFull(id) || get_seqno() != info.seq_no) {
     return td::Status::Error(-668, "header of unpacked shardchain state for block "s + blkid.id.to_str() +
                                        " contains BlockId " + hdr_id.to_str() +
                                        " different from the one originally required");
   }
+  LOG(INFO) << "init, counter" << counter_  << ", 13";
   if (info.r1.master_ref.write().fetch_long(1)) {
+    LOG(INFO) << "init, counter" << counter_  << ", 14";
     BlockIdExt mc_id;
     if (!block::tlb::t_ExtBlkRef.unpack(info.r1.master_ref, mc_id, nullptr)) {
       return td::Status::Error(-668, "cannot unpack master_ref in shardchain state of "s + blkid.to_str());
@@ -148,6 +162,7 @@ td::Status ShardStateQ::init() {
   } else {
     master_ref = {};
   }
+  LOG(INFO) << "init, counter" << counter_  << ", 15";
   return td::Status::OK();
 }
 
@@ -381,41 +396,46 @@ td::Result<Ref<MasterchainStateQ>> MasterchainStateQ::fetch(const BlockIdExt& _i
 
 td::Status MasterchainStateQ::mc_init(std::uint64_t counter_) {
   LOG(INFO) << "mc_init, counter" << counter_  << ", 1";
-  auto err = init();
+  auto err = init(counter_);
   if (err.is_error()) {
     return err;
   }
   LOG(INFO) << "mc_init, counter" << counter_  << ", 2";
-  auto a = mc_reinit();
+  auto a = mc_reinit(counter_);
   LOG(INFO) << "mc_init, counter" << counter_  << ", 3";
   return a;
 }
 
-td::Status MasterchainStateQ::mc_reinit() {
+td::Status MasterchainStateQ::mc_reinit(std::uint64_t counter_) {
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1";
   auto res = block::ConfigInfo::extract_config(
       root_cell(), block::ConfigInfo::needStateRoot | block::ConfigInfo::needValidatorSet |
                        block::ConfigInfo::needShardHashes | block::ConfigInfo::needPrevBlocks);
   cur_validators_.reset();
   next_validators_.reset();
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 2";
   if (res.is_error()) {
     return res.move_as_error();
   }
   config_ = res.move_as_ok();
   CHECK(config_);
   CHECK(config_->set_block_id_ext(get_block_id()));
-
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 3";
   auto cv_root = config_->get_config_param(35, 34);
   if (cv_root.not_null()) {
     TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(cv_root)));
     cur_validators_ = std::move(validators);
   }
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4";
   auto nv_root = config_->get_config_param(37, 36);
   if (nv_root.not_null()) {
     TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(nv_root)));
     next_validators_ = std::move(validators);
   }
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 5";
 
   zerostate_id_ = config_->get_zerostate_id();
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 6";
   return td::Status::OK();
 }
 

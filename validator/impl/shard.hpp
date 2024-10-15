@@ -50,7 +50,7 @@ class ShardStateQ : virtual public ShardState {
   ShardStateQ(ShardStateQ&& other) = default;
 
  public:
-  td::Status init();
+  td::Status init(std::uint64_t counter_);
   ShardStateQ(const BlockIdExt& _id, td::BufferSlice _data);
   ShardStateQ(const BlockIdExt& _id, Ref<vm::Cell> _root, td::BufferSlice _data = {});
   virtual ~ShardStateQ() = default;
