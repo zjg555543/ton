@@ -324,7 +324,7 @@ void send_closure_impl(ActorRef actor_ref, ClosureT &&closure) {
 }
 
 template <class... ArgsT>
-void send_closure(ActorRef actor_ref, ArgsT &&... args) {
+void send_closure(ActorRef actor_ref, ArgsT &&...args) {
   send_closure_impl(actor_ref, create_immediate_closure(std::forward<ArgsT>(args)...));
 }
 
@@ -365,7 +365,7 @@ void send_closure_with_promise_later(ActorRef actor_ref, ClosureT &&closure, Pro
 }
 
 template <class... ArgsT>
-void send_closure_later(ActorRef actor_ref, ArgsT &&... args) {
+void send_closure_later(ActorRef actor_ref, ArgsT &&...args) {
   send_closure_later_impl(actor_ref, create_delayed_closure(std::forward<ArgsT>(args)...));
 }
 
@@ -396,11 +396,12 @@ inline void send_signals_later(ActorRef actor_ref, ActorSignals signals) {
 
 inline void register_actor_info_ptr(core::ActorInfoPtr actor_info_ptr) {
   auto state = actor_info_ptr->state().get_flags_unsafe();
+  LOG(INFO) << "yus register acotr " << actor_info_ptr->get_name() << "thread id " << state.get_scheduler_id().value();
   core::SchedulerContext::get()->add_to_queue(std::move(actor_info_ptr), state.get_scheduler_id(), !state.is_shared());
 }
 
 template <class T, class... ArgsT>
-core::ActorInfoPtr create_actor(core::ActorOptions &options, ArgsT &&... args) noexcept {
+core::ActorInfoPtr create_actor(core::ActorOptions &options, ArgsT &&...args) noexcept {
   auto *scheduler_context = core::SchedulerContext::get();
   if (!options.has_scheduler()) {
     options.on_scheduler(scheduler_context->get_scheduler_id());

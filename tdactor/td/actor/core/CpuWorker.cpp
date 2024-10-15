@@ -33,11 +33,13 @@ void CpuWorker::run() {
   MpmcWaiter::Slot slot;
   waiter_.init_slot(slot, thread_id);
   auto &debug = dispatcher.get_debug();
+  LOG(INFO) << "yus  thread_id" << thread_id;
   while (true) {
     SchedulerMessage message;
     if (try_pop(message, thread_id)) {
       waiter_.stop_wait(slot);
       if (!message) {
+        LOG(INFO) << "yus no message return" << " thread_id" << thread_id;
         return;
       }
       auto lock = debug.start(message->get_name());
