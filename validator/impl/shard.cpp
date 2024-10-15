@@ -411,8 +411,11 @@ td::Status MasterchainStateQ::mc_reinit(std::uint64_t counter_) {
   auto res = block::ConfigInfo::extract_config(
       root_cell(), block::ConfigInfo::needStateRoot | block::ConfigInfo::needValidatorSet |
                        block::ConfigInfo::needShardHashes | block::ConfigInfo::needPrevBlocks);
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-1";
   cur_validators_.reset();
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-2";
   next_validators_.reset();
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-3";
   LOG(INFO) << "mc_reinit, counter" << counter_  << ", 2";
   if (res.is_error()) {
     return res.move_as_error();
@@ -428,9 +431,13 @@ td::Status MasterchainStateQ::mc_reinit(std::uint64_t counter_) {
   }
   LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4";
   auto nv_root = config_->get_config_param(37, 36);
+  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-1";
   if (nv_root.not_null()) {
+    LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-2";
     TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(nv_root)));
+    LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-3";
     next_validators_ = std::move(validators);
+    LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-4";
   }
   LOG(INFO) << "mc_reinit, counter" << counter_  << ", 5";
 
