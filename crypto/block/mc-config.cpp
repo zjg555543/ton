@@ -281,12 +281,17 @@ td::Status Config::unpack(std::uint64_t counter_) {
   if (config_root.is_null()) {
     return td::Status::Error("configuration root not set");
   }
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-1";
   config_dict = std::make_unique<vm::Dictionary>(config_root, 32);
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-2";
   if (mode & needValidatorSet) {
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-3";
     auto vset_res = unpack_validator_set(get_config_param(35, 34), 0);
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-4";
     if (vset_res.is_error()) {
       return vset_res.move_as_error();
     }
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-5";
     cur_validators_ = vset_res.move_as_ok();
     LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-6";
   }
