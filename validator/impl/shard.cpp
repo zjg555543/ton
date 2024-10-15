@@ -359,15 +359,22 @@ MasterchainStateQ* MasterchainStateQ::make_copy() const {
 
 td::Result<Ref<MasterchainStateQ>> MasterchainStateQ::fetch(const BlockIdExt& _id, td::BufferSlice _data,
                                                             Ref<vm::Cell> _root) {
+  LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 1";
   if (!ShardIdFull(_id).is_masterchain_ext()) {
+    LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 2";
     return td::Status::Error(-666,
                              "invalid masterchain block/state id passed for creating a new masterchain state object");
   }
+  LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 3";
   Ref<MasterchainStateQ> res{true, _id, std::move(_root), std::move(_data)};
+  LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 4";
   td::Status err = res.unique_write().mc_init();
+  LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 5";
   if (err.is_error()) {
+    LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 6";
     return err;
   } else {
+    LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 7";
     return std::move(res);
   }
 }
