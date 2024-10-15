@@ -565,16 +565,19 @@ td::Result<std::unique_ptr<ValidatorSet>> Config::unpack_validator_set(Ref<vm::C
     return td::Status::Error(
         "maximal index in a validator set dictionary must be one less than the total number of validators");
   }
-  LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7";
+  LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7" << " ,total=" << rec.total;
   auto ptr = std::make_unique<ValidatorSet>(rec.utime_since, rec.utime_until, rec.total, rec.main);
   for (int i = 0; i < rec.total; i++) {
+    LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-1";
     key_buffer.store_ulong(i);
     auto descr_cs = dict.lookup(key_buffer.bits(), 16);
     if (descr_cs.is_null()) {
       return td::Status::Error("indices in a validator set dictionary must be integers 0..total-1");
     }
+    LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-2";
     gen::ValidatorDescr::Record_validator_addr descr;
     if (!tlb::csr_unpack(descr_cs, descr)) {
+      LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-3";
       descr.adnl_addr.set_zero();
       if (!(gen::t_ValidatorDescr.unpack_validator(descr_cs.write(), descr.public_key, descr.weight) &&
             descr_cs->empty_ext())) {
@@ -582,19 +585,23 @@ td::Result<std::unique_ptr<ValidatorSet>> Config::unpack_validator_set(Ref<vm::C
                                           << " has an invalid ValidatorDescr record in the validator set dictionary");
       }
     }
+    LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-4";
     gen::SigPubKey::Record sig_pubkey;
     if (!tlb::csr_unpack(std::move(descr.public_key), sig_pubkey)) {
       return td::Status::Error(PSLICE() << "validator #" << i
                                         << " has no public key or its public key is in unsupported format");
     }
+    LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-5";
     if (!descr.weight) {
       return td::Status::Error(PSLICE() << "validator #" << i << " has zero weight");
     }
     if (descr.weight > ~(ptr->total_weight)) {
       return td::Status::Error("total weight of all validators in validator set exceeds 2^64");
     }
+    LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-6";
     ptr->list.emplace_back(sig_pubkey.pubkey, descr.weight, ptr->total_weight, descr.adnl_addr);
     ptr->total_weight += descr.weight;
+    LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-7";
   }
   LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 8";
   if (rec.total_weight && rec.total_weight != ptr->total_weight) {
