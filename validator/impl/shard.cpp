@@ -77,7 +77,7 @@ td::Result<Ref<ShardStateQ>> ShardStateQ::fetch(const BlockIdExt& _id, td::Buffe
   LOG(INFO) << "fetch, counter" << _id.counter_  << ", 5";
   Ref<ShardStateQ> res{true, _id, std::move(_root), std::move(_data)};
   LOG(INFO) << "fetch, counter" << _id.counter_  << ", 6";
-  td::Status err = res.unique_write().init();
+  td::Status err = res.unique_write().init(_id.counter_);
   if (err.is_error()) {
     LOG(INFO) << "fetch, counter" << _id.counter_  << ", 7";
     return err;
@@ -445,7 +445,7 @@ td::Status MasterchainStateQ::apply_block(BlockIdExt id, td::Ref<BlockData> bloc
     return err;
   }
   config_.reset();
-  err = mc_reinit();
+  err = mc_reinit(0);
   if (err.is_error()) {
     LOG(ERROR) << "cannot extract masterchain-specific state data from newly-computed state for block "
                << id.id.to_str() << " : " << err.to_string();
@@ -457,7 +457,7 @@ td::Status MasterchainStateQ::prepare() {
   if (config_) {
     return td::Status::OK();
   }
-  return mc_reinit();
+  return mc_reinit(0);
 }
 
 Ref<ValidatorSet> MasterchainStateQ::compute_validator_set(ShardIdFull shard, const block::ValidatorSet& vset,
