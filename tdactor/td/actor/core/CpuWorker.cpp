@@ -33,7 +33,7 @@ void CpuWorker::run() {
   MpmcWaiter::Slot slot;
   waiter_.init_slot(slot, thread_id);
   auto &debug = dispatcher.get_debug();
-  LOG(INFO) << "yus  thread_id" << thread_id;
+  LOG(INFO) << "yus  thread_id" << thread_id << "worker id " << this->id_;
   while (true) {
     SchedulerMessage message;
     if (try_pop(message, thread_id)) {
