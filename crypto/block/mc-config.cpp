@@ -215,7 +215,7 @@ td::Status ConfigInfo::unpack(std::uint64_t counter_) {
   }
   // unpack configuration
   LOG(INFO) << "unpack, counter" << counter_  << ", 16-1";
-  TRY_STATUS(Config::unpack_wrapped(std::move(extra_info.config)));
+  TRY_STATUS(Config::unpack_wrapped(std::move(extra_info.config), counter_));
   LOG(INFO) << "unpack, counter" << counter_  << ", 16-2";
   // unpack previous masterchain block collection
   std::unique_ptr<vm::AugmentedDictionary> prev_blocks_dict =
@@ -246,9 +246,10 @@ td::Status ConfigInfo::unpack(std::uint64_t counter_) {
   return td::Status::OK();
 }
 
-td::Status Config::unpack_wrapped(Ref<vm::CellSlice> config_csr) {
+td::Status Config::unpack_wrapped(Ref<vm::CellSlice> config_csr, std::uint64_t counter_) {
   try {
-    return unpack(std::move(config_csr));
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-1";
+    return unpack(std::move(config_csr), counter_);
   } catch (vm::VmError err) {
     return td::Status::Error(PSLICE() << "error unpacking masterchain configuration: " << err.get_msg());
   }
@@ -262,17 +263,21 @@ td::Status Config::unpack_wrapped() {
   }
 }
 
-td::Status Config::unpack(Ref<vm::CellSlice> config_cs) {
+td::Status Config::unpack(Ref<vm::CellSlice> config_cs, std::uint64_t counter_) {
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-2";
   gen::ConfigParams::Record config_params;
   if (!tlb::csr_unpack(std::move(config_cs), config_params)) {
     return td::Status::Error("cannot unpack ConfigParams");
   }
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-3";
   config_addr = config_params.config_addr;
   config_root = std::move(config_params.config);
-  return unpack();
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-4";
+  return unpack(counter_);
 }
 
-td::Status Config::unpack() {
+td::Status Config::unpack(std::uint64_t counter_) {
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5";
   if (config_root.is_null()) {
     return td::Status::Error("configuration root not set");
   }
@@ -283,6 +288,7 @@ td::Status Config::unpack() {
       return vset_res.move_as_error();
     }
     cur_validators_ = vset_res.move_as_ok();
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-6";
   }
   if (mode & needSpecialSmc) {
     LOG(DEBUG) << "needSpecialSmc flag set";
@@ -293,17 +299,21 @@ td::Status Config::unpack() {
       special_smc_dict = std::make_unique<vm::Dictionary>(vm::load_cell_slice_ref(std::move(param)), 256);
       LOG(DEBUG) << "smc dictionary created";
     }
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-7";
   }
   if (mode & needWorkchainInfo) {
     TRY_RESULT(pair, unpack_workchain_list_ext(get_config_param(12)));
     workchains_ = std::move(pair.first);
     workchains_dict_ = std::move(pair.second);
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-8";
   }
   if (mode & needCapabilities) {
+    LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-10";
     auto cell = get_config_param(8);
     if (cell.is_null()) {
       version_ = 0;
       capabilities_ = 0;
+       LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-11";
     } else {
       block::gen::GlobalVersion::Record gv;
       if (!tlb::unpack_cell(std::move(cell), gv)) {
@@ -313,9 +323,11 @@ td::Status Config::unpack() {
       }
       version_ = gv.version;
       capabilities_ = gv.capabilities;
+       LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-12";
     }
   }
   // ...
+  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-13";
   return td::Status::OK();
 }
 
