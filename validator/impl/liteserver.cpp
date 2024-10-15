@@ -824,7 +824,7 @@ bool LiteQuery::request_zero_state(BlockIdExt blkid) {
   return true;
 }
 
-static std::atomic_uint64_t counter;
+static std::atomic_uint64_t counter = 1000;
 
 void LiteQuery::perform_getAccountState(BlockIdExt blkid, WorkchainId workchain, StdSmcAddress addr, int mode) {
   td::PerfWarningTimer timer{"okxdebug-perform_getAccountState", 0.01};
