@@ -374,22 +374,22 @@ MasterchainStateQ* MasterchainStateQ::make_copy() const {
 
 td::Result<Ref<MasterchainStateQ>> MasterchainStateQ::fetch(const BlockIdExt& _id, td::BufferSlice _data,
                                                             Ref<vm::Cell> _root) {
-  LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 1";
+  // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 1";
   if (!ShardIdFull(_id).is_masterchain_ext()) {
-    LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 2";
+    // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 2";
     return td::Status::Error(-666,
                              "invalid masterchain block/state id passed for creating a new masterchain state object");
   }
-  LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 3";
+  // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 3";
   Ref<MasterchainStateQ> res{true, _id, std::move(_root), std::move(_data)};
-  LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 4";
+  // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 4";
   td::Status err = res.unique_write().mc_init(_id.counter_);
-  LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 5";
+  // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 5";
   if (err.is_error()) {
-    LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 6";
+    // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 6";
     return err;
   } else {
-    LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 7";
+    // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 7";
     return std::move(res);
   }
 }
@@ -407,42 +407,42 @@ td::Status MasterchainStateQ::mc_init(std::uint64_t counter_) {
 }
 
 td::Status MasterchainStateQ::mc_reinit(std::uint64_t counter_) {
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1";
   auto res = block::ConfigInfo::extract_config(
       root_cell(), block::ConfigInfo::needStateRoot | block::ConfigInfo::needValidatorSet |
                        block::ConfigInfo::needShardHashes | block::ConfigInfo::needPrevBlocks, counter_);
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-1";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-1";
   cur_validators_.reset();
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-2";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-2";
   next_validators_.reset();
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-3";
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 2";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-3";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 2";
   if (res.is_error()) {
     return res.move_as_error();
   }
   config_ = res.move_as_ok();
   CHECK(config_);
   CHECK(config_->set_block_id_ext(get_block_id()));
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 3";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 3";
   auto cv_root = config_->get_config_param(35, 34);
   if (cv_root.not_null()) {
     TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(cv_root), 0));
     cur_validators_ = std::move(validators);
   }
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4";
   auto nv_root = config_->get_config_param(37, 36);
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-1";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-1";
   if (nv_root.not_null()) {
-    LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-2";
+    // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-2";
     TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(nv_root), counter_));
-    LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-3";
+    // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-3";
     next_validators_ = std::move(validators);
-    LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-4";
+    // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-4";
   }
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 5";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 5";
 
   zerostate_id_ = config_->get_zerostate_id();
-  LOG(INFO) << "mc_reinit, counter" << counter_  << ", 6";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 6";
   return td::Status::OK();
 }
 
