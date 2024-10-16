@@ -135,7 +135,9 @@ class Scheduler {
           while (scheduler->run(10)) {
           }
         });
-        thread.set_name(PSLICE() << "#" << it << ":io");
+        auto name = PSLICE() << "#" << it << ":io";
+        LOG(INFO) << "yus scheduler start " << name << "scheduler size " << schedulers_.size();
+        thread.set_name(name);
         thread.detach();
       }
     }
@@ -188,11 +190,13 @@ class Scheduler {
   bool skip_timeouts_{false};
 
   void init() {
+    LOG(INFO) << " yus " << "create actor scheduler size " << infos_.size();
     CHECK(infos_.size() < 256);
     CHECK(!group_info_);
     group_info_ = std::make_shared<core::SchedulerGroupInfo>(infos_.size());
     td::uint8 id = 0;
     for (const auto &info : infos_) {
+      LOG(INFO) << " yus NodeInfo " << id << "cpu thread " << info.cpu_threads_;
       schedulers_.emplace_back(
           td::make_unique<core::Scheduler>(group_info_, core::SchedulerId{id}, info.cpu_threads_, skip_timeouts_));
       id++;

@@ -29,6 +29,7 @@ namespace core {
 void CpuWorker::run() {
   auto thread_id = get_thread_id();
   auto &dispatcher = *SchedulerContext::get();
+  LOG(INFO) << "yus start work " << thread_id;
 
   MpmcWaiter::Slot slot;
   waiter_.init_slot(slot, thread_id);
@@ -39,12 +40,14 @@ void CpuWorker::run() {
     if (try_pop(message, thread_id)) {
       waiter_.stop_wait(slot);
       if (!message) {
-        LOG(INFO) << "yus no message return" << " thread_id" << thread_id;
+        LOG(INFO) << "yus no message return" << " thread_id " << thread_id;
         return;
       }
       auto lock = debug.start(message->get_name());
+      LOG(INFO) << "yus actor " << message->get_name() << " mailbox number " << message->mailbox().reader().calc_size();
       ActorExecutor executor(*message, dispatcher, ActorExecutor::Options().with_from_queue());
     } else {
+      LOG(INFO) << "yus no message, IDLE";
       waiter_.wait(slot);
     }
   }
