@@ -1011,8 +1011,8 @@ void ValidatorManagerImpl::get_block_data_from_db_short(BlockIdExt block_id, td:
   get_block_handle(block_id, false, std::move(P));
 }
 
-void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
-  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise));
+void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) {
+  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise), counter_);
 }
 
 void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
@@ -1023,7 +1023,7 @@ void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
           promise.set_error(R.move_as_error());
         } else {
           auto handle = R.move_as_ok();
-          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise));
+          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise), 7);
         }
       });
   get_block_handle(block_id, false, std::move(P));
@@ -1889,7 +1889,7 @@ void ValidatorManagerImpl::checked_archive_slice(std::vector<BlockSeqno> seqno) 
           td::actor::send_closure(client, &ShardClient::force_update_shard_client_ex, std::move(handle),
                                   td::Ref<MasterchainState>{R.move_as_ok()}, std::move(P));
         });
-        td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(P));
+        td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(P), 8);
       });
   get_block_handle(b, true, std::move(P));
 }
@@ -3042,15 +3042,18 @@ void ValidatorManagerImpl::get_block_data_for_litequery(BlockIdExt block_id, td:
 
 void ValidatorManagerImpl::get_block_state_for_litequery(BlockIdExt block_id,
                                                          td::Promise<td::Ref<ShardState>> promise) {
-  LOG(INFO) << "get_block_state_for_litequery: manager" << "zjg, counter" << block_id.counter_;
+  LOG(INFO) << "get_block_state_for_litequery: manager" << " counter" << block_id.counter_  << ", 1";
   if (candidates_buffer_.empty()) {
+    LOG(INFO) << "get_block_state_for_litequery: manager" << " counter" << block_id.counter_  << ", 2";
+    std::uint64_t counter = block_id.counter_;
     get_block_handle_for_litequery(
-        block_id, [manager = actor_id(this), promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {
-          TRY_RESULT_PROMISE(promise, handle, std::move(R));
-          td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db, std::move(handle),
-                                        std::move(promise));
-        });
+      block_id, [manager = actor_id(this), promise = std::move(promise), counter](td::Result<ConstBlockHandle> R) mutable {
+        TRY_RESULT_PROMISE(promise, handle, std::move(R));
+        td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db, std::move(handle),
+                                      std::move(promise), counter);
+    });
   } else {
+    LOG(INFO) << "get_block_state_for_litequery: manager" << " counter" << block_id.counter_ << ", 3";
     td::actor::send_closure(
         candidates_buffer_, &CandidatesBuffer::get_block_state, block_id,
         [manager = actor_id(this), promise = std::move(promise), block_id](td::Result<td::Ref<ShardState>> R) mutable {
@@ -3062,9 +3065,9 @@ void ValidatorManagerImpl::get_block_state_for_litequery(BlockIdExt block_id,
                                   [manager, promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {
                                     TRY_RESULT_PROMISE(promise, handle, std::move(R));
                                     td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db,
-                                                                  std::move(handle), std::move(promise));
+                                                                  std::move(handle), std::move(promise), 0);
                                   });
-        });
+        }, 0);
   }
 }
 

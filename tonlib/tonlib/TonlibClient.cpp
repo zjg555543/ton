@@ -1966,7 +1966,7 @@ class RunEmulator : public TonlibQueryActor {
     }
 
     try {
-      auto r_config = block::ConfigInfo::extract_config(mc_state_root_, 0b11'11111111);
+      auto r_config = block::ConfigInfo::extract_config(mc_state_root_, 0b11'11111111, 0);
       if (r_config.is_error()) {
         check(r_config.move_as_error());
         return;

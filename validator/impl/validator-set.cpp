@@ -137,12 +137,12 @@ td::Status ValidatorSetCompute::init(const block::Config *config) {
   config_ = config;
   auto cv_root = config_->get_config_param(34);
   if (cv_root.not_null()) {
-    TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(cv_root)));
+    TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(cv_root), 0));
     cur_validators_ = std::move(validators);
   }
   auto nv_root = config_->get_config_param(36);
   if (nv_root.not_null()) {
-    TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(nv_root)));
+    TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(nv_root), 0));
     next_validators_ = std::move(validators);
   }
   return td::Status::OK();

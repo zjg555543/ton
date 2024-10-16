@@ -421,7 +421,7 @@ void FullNodeImpl::new_key_block(BlockHandle handle) {
       }
     });
     td::actor::send_closure(validator_manager_, &ValidatorManagerInterface::get_shard_state_from_db, handle,
-                            std::move(P));
+                            std::move(P), 0);
   } else {
     CHECK(handle->is_key_block());
     auto P = td::PromiseCreator::lambda([SelfId = actor_id(this)](td::Result<td::Ref<ProofLink>> R) {

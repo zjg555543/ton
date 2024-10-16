@@ -417,7 +417,7 @@ bool store_config_params(vm::CellBuilder& cb) {
 // stores hash of initial masterchain validator set computed from configuration parameter 34
 bool store_validator_list_hash(vm::CellBuilder& cb) {
   Ref<vm::Cell> vset_cell = config_dict.lookup_ref(td::BitArray<32>{34});
-  auto res = block::Config::unpack_validator_set(std::move(vset_cell));
+  auto res = block::Config::unpack_validator_set(std::move(vset_cell), 0);
   if (res.is_error()) {
     LOG(ERROR) << "cannot unpack current validator set: " << res.move_as_error().to_string();
     return false;

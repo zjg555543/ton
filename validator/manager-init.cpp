@@ -349,7 +349,7 @@ void ValidatorManagerMasterchainStarter::got_init_block_handle(BlockHandle handl
                             td::Ref<MasterchainState>{R.move_as_ok()});
   });
 
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle_, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle_, std::move(P), 0);
 }
 
 void ValidatorManagerMasterchainStarter::got_init_block_state(td::Ref<MasterchainState> state) {
@@ -393,7 +393,7 @@ void ValidatorManagerMasterchainStarter::got_gc_block_handle(BlockHandle handle)
                             td::Ref<MasterchainState>{R.move_as_ok()});
   });
 
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, gc_handle_, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, gc_handle_, std::move(P), 0);
 }
 
 void ValidatorManagerMasterchainStarter::got_gc_block_state(td::Ref<MasterchainState> state) {
@@ -519,7 +519,7 @@ void ValidatorManagerMasterchainStarter::got_truncate_block_handle(BlockHandle h
     td::actor::send_closure(SelfId, &ValidatorManagerMasterchainStarter::got_truncate_state,
                             td::Ref<MasterchainState>{R.move_as_ok()});
   });
-  td::actor::send_closure(db_, &Db::get_block_state, handle_, std::move(P));
+  td::actor::send_closure(db_, &Db::get_block_state, handle_, std::move(P), 5);
 }
 
 void ValidatorManagerMasterchainStarter::got_truncate_state(td::Ref<MasterchainState> state) {

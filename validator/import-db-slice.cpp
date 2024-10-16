@@ -210,7 +210,7 @@ void ArchiveImporter::applied_masterchain_block(BlockHandle handle) {
     td::actor::send_closure(SelfId, &ArchiveImporter::got_new_materchain_state,
                             td::Ref<MasterchainState>(R.move_as_ok()));
   });
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P), 0);
 }
 
 void ArchiveImporter::got_new_materchain_state(td::Ref<MasterchainState> state) {

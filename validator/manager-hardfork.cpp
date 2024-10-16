@@ -391,8 +391,8 @@ void ValidatorManagerImpl::get_block_data_from_db_short(BlockIdExt block_id, td:
   get_block_handle(block_id, false, std::move(P));
 }
 
-void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
-  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise));
+void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) {
+  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise), counter_);
 }
 
 void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
@@ -405,7 +405,7 @@ void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
           promise.set_error(R.move_as_error());
         } else {
           auto handle = R.move_as_ok();
-          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise));
+          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise), 4);
         }
       });
   get_block_handle(block_id, false, std::move(P));

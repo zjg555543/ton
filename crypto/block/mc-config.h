@@ -617,7 +617,7 @@ class Config {
   bool set_block_id_ext(const ton::BlockIdExt& block_id_ext);
   td::Result<std::vector<ton::StdSmcAddress>> get_special_smartcontracts(bool without_config = false) const;
   bool is_special_smartcontract(const ton::StdSmcAddress& addr) const;
-  static td::Result<std::unique_ptr<ValidatorSet>> unpack_validator_set(Ref<vm::Cell> valset_root);
+  static td::Result<std::unique_ptr<ValidatorSet>> unpack_validator_set(Ref<vm::Cell> valset_root, std::uint64_t counter_);
   td::Result<std::vector<StoragePrices>> get_storage_prices() const;
   static td::Result<StoragePrices> do_get_one_storage_prices(vm::CellSlice cs);
   td::Result<GasLimitsPrices> get_gas_limits_prices(bool is_masterchain = false) const;
@@ -674,10 +674,10 @@ class Config {
     config_addr.set_zero();
   }
   Config(Ref<vm::Cell> config_root, const td::Bits256& config_addr = td::Bits256::zero(), int _mode = 0);
-  td::Status unpack_wrapped(Ref<vm::CellSlice> config_csr);
-  td::Status unpack(Ref<vm::CellSlice> config_csr);
+  td::Status unpack_wrapped(Ref<vm::CellSlice> config_csr, std::uint64_t counter_ = 0);
+  td::Status unpack(Ref<vm::CellSlice> config_csr, std::uint64_t counter_ = 0);
   td::Status unpack_wrapped();
-  td::Status unpack();
+  td::Status unpack(std::uint64_t counter_ = 0);
 };
 
 class ConfigInfo : public Config, public ShardConfig {
@@ -762,12 +762,12 @@ class ConfigInfo : public Config, public ShardConfig {
   td::Result<Ref<vm::Tuple>> get_prev_blocks_info() const;
   static td::Result<std::unique_ptr<ConfigInfo>> extract_config(std::shared_ptr<vm::StaticBagOfCellsDb> static_boc,
                                                                 int mode = 0);
-  static td::Result<std::unique_ptr<ConfigInfo>> extract_config(Ref<vm::Cell> mc_state_root, int mode = 0);
+  static td::Result<std::unique_ptr<ConfigInfo>> extract_config(Ref<vm::Cell> mc_state_root, int mode = 0, std::uint64_t counter_ = 0);
 
  private:
   ConfigInfo(Ref<vm::Cell> mc_state_root, int _mode = 0);
-  td::Status unpack_wrapped();
-  td::Status unpack();
+  td::Status unpack_wrapped(std::uint64_t counter_ = 0);
+  td::Status unpack(std::uint64_t counter_ = 0);
   void reset_mc_hash();
   void cleanup();
 };

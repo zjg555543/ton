@@ -85,7 +85,7 @@ void CandidatesBuffer::got_block_candidate(BlockIdExt id, td::Result<BlockCandid
   finish_get_block_data(id, create_block(id, std::move(cand.data)));
 }
 
-void CandidatesBuffer::get_block_state(BlockIdExt id, td::Promise<td::Ref<ShardState>> promise) {
+void CandidatesBuffer::get_block_state(BlockIdExt id, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) {
   auto it = candidates_.find(id);
   if (it == candidates_.end()) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "unknown block candidate"));
