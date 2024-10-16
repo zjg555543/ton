@@ -4206,7 +4206,7 @@ int main(int argc, char *argv[]) {
                            v = 127;
                          }
                          threads = v;
-                         threads = 127;
+                         threads = 4;
                          return td::Status::OK();
                        });
   p.add_checked_option('u', "user", "change user", [&](td::Slice user) { return td::change_user(user.str()); });
