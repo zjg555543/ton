@@ -67,6 +67,8 @@ Scheduler::Scheduler(std::shared_ptr<SchedulerGroupInfo> scheduler_group_info, S
     scheduler_group_info_->iocp.init();
   }
 #endif
+  LOG(INFO) << "yus scheduler create " << "id " << id.value() << "count " << cpu_threads_count << "scheduler_group_ "
+            << scheduler_group_info_->active_scheduler_count << " " << scheduler_group_info_->schedulers.size();
 }
 
 Scheduler::~Scheduler() {
@@ -76,13 +78,16 @@ Scheduler::~Scheduler() {
 }
 
 void Scheduler::start() {
+  LOG(INFO) << "yus start scheduler, cpu size " << cpu_threads_.size();
   for (size_t i = 0; i < cpu_threads_.size(); i++) {
     cpu_threads_[i] = td::thread([this, i] {
       this->run_in_context_impl(*this->info_->cpu_workers[i], [this, i] {
         CpuWorker(*info_->cpu_queue, *info_->cpu_queue_waiter, i, info_->cpu_local_queue).run();
       });
     });
-    cpu_threads_[i].set_name(PSLICE() << "#" << info_->id.value() << ":cpu#" << i);
+    auto name = PSLICE() << "#" << info_->id.value() << ":cpu#" << i;
+    LOG(INFO) << "yus create " << "cpu_workers " << name;
+    cpu_threads_[i].set_name(name);
   }
 #if TD_PORT_WINDOWS
   // FIXME: use scheduler_id
@@ -156,7 +161,8 @@ void Scheduler::ContextImpl::add_to_queue(ActorInfoPtr actor_info_ptr, Scheduler
   if (!scheduler_id.is_valid()) {
     scheduler_id = get_scheduler_id();
   }
-  //LOG(ERROR) << "Add to queue: " << actor_info_ptr->get_name() << " " << scheduler_id.value();
+  auto name = actor_info_ptr->get_name();
+
   auto &info = scheduler_group()->schedulers.at(scheduler_id.value());
   if (need_poll || !info.cpu_queue) {
     info.io_queue->writer_put(std::move(actor_info_ptr));
@@ -165,13 +171,20 @@ void Scheduler::ContextImpl::add_to_queue(ActorInfoPtr actor_info_ptr, Scheduler
       // may push local
       CHECK(actor_info_ptr);
       auto raw = actor_info_ptr.release();
-      auto should_notify = info.cpu_local_queue[cpu_worker_id_.value()].push(
-          raw, [&](auto value) { info.cpu_queue->push(value, get_thread_id()); });
+      auto should_notify = info.cpu_local_queue[cpu_worker_id_.value()].push(raw, [&](auto value) {
+        info.cpu_queue->push(value, get_thread_id());
+        LOG(ERROR) << "yus add to queue overflow: " << name << " sche id " << scheduler_id.value() << " worker id "
+                   << cpu_worker_id_.value() << " thread id " << get_thread_id();
+      });
       if (should_notify) {
         info.cpu_queue_waiter->notify();
       }
+      LOG(ERROR) << "yus add to queue: " << name << " sche id " << scheduler_id.value() << " "
+                 << get_scheduler_id().value() << " worker id " << cpu_worker_id_.value() << " thread id "
+                 << get_thread_id();
       return;
     }
+    LOG(ERROR) << "yus add to global queue: " << scheduler_id.value() << "thread id " << get_thread_id();
     info.cpu_queue->push(actor_info_ptr.release(), get_thread_id());
     info.cpu_queue_waiter->notify();
   }
