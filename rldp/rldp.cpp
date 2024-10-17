@@ -208,6 +208,7 @@ void RldpIn::process_message(adnl::AdnlNodeIdShort source, adnl::AdnlNodeIdShort
     }
   });
   VLOG(RLDP_DEBUG) << "delivering rldp query";
+  LOG(INFO) << "process_message, 1";
   td::actor::send_closure(adnl_, &adnl::AdnlPeerTable::deliver_query, source, local_id, std::move(message.data_),
                           std::move(P));
 }

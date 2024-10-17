@@ -569,6 +569,7 @@ void AdnlPeerPairImpl::process_message(const adnlmessage::AdnlMessageQuery &mess
       }
     }
   });
+  LOG(INFO) << "process_message, 1";
   td::actor::send_closure(local_actor_, &AdnlLocalId::deliver_query, peer_id_short_, message.data(), std::move(P));
 }
 
