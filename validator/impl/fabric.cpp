@@ -251,6 +251,7 @@ void run_collate_hardfork(ShardIdFull shard, const BlockIdExt& min_masterchain_b
 
 void run_liteserver_query(td::BufferSlice data, td::actor::ActorId<ValidatorManager> manager,
                           td::actor::ActorId<LiteServerCache> cache, td::Promise<td::BufferSlice> promise) {
+  LOG(INFO) << "run_liteserver_query, 1" << "f->query_ len:" << data.size();
   LiteQuery::run_query(std::move(data), std::move(manager), std::move(cache), std::move(promise));
 }
 

@@ -69,7 +69,7 @@ int global_count = 0;
 
 void LiteQuery::run_query(td::BufferSlice data, td::actor::ActorId<ValidatorManager> manager,
                           td::actor::ActorId<LiteServerCache> cache, td::Promise<td::BufferSlice> promise) {
-  LOG(INFO) << "fatal_error 104";
+  LOG(INFO) << "fatal_error 104" << ", f->query_ len:" << data.size();
   td::actor::create_actor<LiteQuery>("litequery", std::move(data), std::move(manager), std::move(cache),
                                      std::move(promise))
       .release();
