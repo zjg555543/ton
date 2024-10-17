@@ -3911,6 +3911,7 @@ void ValidatorEngine::process_control_query(td::uint16 port, ton::adnl::AdnlNode
     if (!started_) {
       return;
     }
+    LOG(INFO) << "process_control_query, 1";
     td::actor::send_closure(validator_manager_, &ton::validator::ValidatorManagerInterface::run_ext_query,
                             std::move(data), std::move(promise));
     return;
