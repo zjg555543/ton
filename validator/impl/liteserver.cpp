@@ -165,7 +165,7 @@ void LiteQuery::start_up() {
   auto F = fetch_tl_object<ton::lite_api::Function>(query_, true);
   if (F.is_error()) {
     td::actor::send_closure(manager_, &ValidatorManager::add_lite_query_stats, 0);  // unknown
-    LOG(INFO) << "fatal_error 2,"  << counter_;
+    LOG(INFO) << "fatal_error 2,"  << counter_ << ", f->query_ len:" << query_.size();
     abort_query(F.move_as_error());
     // std::this_thread::sleep_for(std::chrono::seconds(10000));
     return;
