@@ -650,10 +650,12 @@ void ValidatorManagerImpl::run_ext_query(td::BufferSlice data, td::Promise<td::B
   LOG(INFO) << "run_ext_query, 1" << "f->query_ len:" << data.size();
   auto E = fetch_tl_prefix<lite_api::liteServer_waitMasterchainSeqno>(data, true);
   if (E.is_error()) {
+    LOG(INFO) << "run_ext_query, 2" << "f->query_ len:" << data.size();
     run_liteserver_query(std::move(data), actor_id(this), lite_server_cache_.get(), std::move(P));
   } else {
     auto e = E.move_as_ok();
     if (static_cast<BlockSeqno>(e->seqno_) <= min_confirmed_masterchain_seqno_) {
+      LOG(INFO) << "run_ext_query, 3" << "f->query_ len:" << data.size();
       run_liteserver_query(std::move(data), actor_id(this), lite_server_cache_.get(), std::move(P));
     } else {
       auto t = e->timeout_ms_ < 10000 ? e->timeout_ms_ * 0.001 : 10.0;
@@ -664,6 +666,7 @@ void ValidatorManagerImpl::run_ext_query(td::BufferSlice data, td::Promise<td::B
               promise.set_error(R.move_as_error());
               return;
             }
+            LOG(INFO) << "run_ext_query, 4" << "f->query_ len:" << data.size();
             run_liteserver_query(std::move(data), SelfId, cache, std::move(promise));
           });
       wait_shard_client_state(e->seqno_, td::Timestamp::in(t), std::move(Q));
