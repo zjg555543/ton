@@ -135,14 +135,19 @@ void LiteQuery::alarm() {
 }
 
 bool LiteQuery::finish_query(td::BufferSlice result, bool skip_cache_update) {
+  LOG(INFO) << "finish_query 1"; 
   if (use_cache_ && !skip_cache_update) {
+    LOG(INFO) << "finish_query 2"; 
     td::actor::send_closure(cache_, &LiteServerCache::update, cache_key_, result.clone());
   }
+  LOG(INFO) << "finish_query 3"; 
   if (promise_) {
+    LOG(INFO) << "finish_query 4"; 
     promise_.set_result(std::move(result));
     stop();
     return true;
   } else {
+    LOG(INFO) << "finish_query 5"; 
     stop();
     return false;
   }
@@ -221,7 +226,7 @@ void LiteQuery::perform() {
           [&](lite_api::liteServer_getVersion& q) { this->perform_getVersion(); },
           [&](lite_api::liteServer_getMasterchainInfo& q) { 
             LOG(INFO) << "fatal_error 120";
-            //this->perform_getMasterchainInfo(-1); 
+            this->perform_getMasterchainInfo(-1); 
             },
           [&](lite_api::liteServer_getMasterchainInfoExt& q) {
             LOG(INFO) << "fatal_error 121";
@@ -340,9 +345,11 @@ void LiteQuery::perform_getMasterchainInfo(int mode) {
     fatal_error("unsupported getMasterchainInfo mode");
     return;
   }
+   LOG(INFO) << "perform_getMasterchainInfo 1"; 
   td::actor::send_closure_later(manager_, &ton::validator::ValidatorManager::get_last_liteserver_state_block,
                                 [Self = actor_id(this), return_state = bool(acc_state_promise_),
                                  mode](td::Result<std::pair<Ref<ton::validator::MasterchainState>, BlockIdExt>> res) {
+                                  LOG(INFO) << "perform_getMasterchainInfo 2"; 
                                   if (res.is_error()) {
                                     LOG(INFO) << "fatal_error 5";
                                     td::actor::send_closure(Self, &LiteQuery::abort_query, res.move_as_error());
@@ -350,6 +357,7 @@ void LiteQuery::perform_getMasterchainInfo(int mode) {
                                     auto pair = res.move_as_ok();
                                     auto func = return_state ? &LiteQuery::gotMasterchainInfoForAccountState
                                                              : &LiteQuery::continue_getMasterchainInfo;
+                                                             LOG(INFO) << "perform_getMasterchainInfo 3"; 
                                     td::actor::send_closure_later(Self, func, std::move(pair.first), pair.second, mode);
                                   }
                                 });
@@ -369,6 +377,7 @@ void LiteQuery::continue_getMasterchainInfo(Ref<ton::validator::MasterchainState
     fatal_error("cannot obtain a valid masterchain state");
     return;
   }
+  LOG(INFO) << "continue_getMasterchainInfo 1"; 
   auto zerostate_id = mc_state_q->get_zerostate_id();
   auto zs_tl = create_tl_object<lite_api::tonNode_zeroStateIdExt>(zerostate_id.workchain, zerostate_id.root_hash,
                                                                   zerostate_id.file_hash);

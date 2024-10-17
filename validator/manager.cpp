@@ -1493,9 +1493,12 @@ void ValidatorManagerImpl::get_top_masterchain_state(td::Promise<td::Ref<Masterc
 }
 
 td::Ref<MasterchainState> ValidatorManagerImpl::do_get_last_liteserver_state() {
+  LOG(INFO) << "do_get_last_liteserver_state 1"; 
   if (last_masterchain_state_.is_null()) {
+    LOG(INFO) << "do_get_last_liteserver_state 2"; 
     return {};
   }
+  LOG(INFO) << "do_get_last_liteserver_state 3"; 
   if (last_liteserver_state_.is_null()) {
     last_liteserver_state_ = last_masterchain_state_;
     return last_liteserver_state_;
@@ -1533,6 +1536,7 @@ void ValidatorManagerImpl::get_top_masterchain_state_block(
 
 void ValidatorManagerImpl::get_last_liteserver_state_block(
     td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise) {
+  LOG(INFO) << "get_last_liteserver_state_block 1";     
   auto state = do_get_last_liteserver_state();
   if (state.is_null()) {
     promise.set_error(td::Status::Error(ton::ErrorCode::notready, "not started"));
