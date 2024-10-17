@@ -647,7 +647,7 @@ void ValidatorManagerImpl::run_ext_query(td::BufferSlice data, td::Promise<td::B
     }
     promise.set_value(std::move(data));
   });
-  LOG(INFO) << "run_ext_query, 1";
+  LOG(INFO) << "run_ext_query, 1" << "f->query_ len:" << data.size();
   auto E = fetch_tl_prefix<lite_api::liteServer_waitMasterchainSeqno>(data, true);
   if (E.is_error()) {
     run_liteserver_query(std::move(data), actor_id(this), lite_server_cache_.get(), std::move(P));

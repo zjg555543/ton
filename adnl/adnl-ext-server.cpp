@@ -38,7 +38,7 @@ td::Status AdnlInboundConnection::process_packet(td::BufferSlice data) {
         }
       });
 
-  LOG(INFO) << "process_packet, 1";
+  LOG(INFO) << "process_packet, 1" << ", f->query_ len:" << f->query_.size();
   td::actor::send_closure(peer_table_, &AdnlPeerTable::deliver_query, remote_id_, local_id_, std::move(f->query_),
                           std::move(P));
   return td::Status::OK();
