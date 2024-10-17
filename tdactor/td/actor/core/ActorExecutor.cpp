@@ -232,7 +232,7 @@ bool ActorExecutor::flush_one_signal(ActorSignals &signals) {
 bool ActorExecutor::flush_one_message() {
   auto message = actor_info_.mailbox().reader().read();
   // LOG(ERROR) << "flush one message " << !!message << " " << actor_info_.get_name();
-  LOG(INFO) << "yus " << "flush one message " << actor_info_.actor_ptr() << " name " << actor_info_.get_name();
+  LOG(INFO) << "yus " << "flush one message " << " name " << actor_info_.get_name();
   if (!message) {
     pending_signals_.clear_signal(ActorSignals::Message);
     return false;

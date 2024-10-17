@@ -45,7 +45,7 @@ void CpuWorker::run() {
         return;
       }
       auto lock = debug.start(message->get_name());
-      LOG(INFO) << "yus actor " << message->get_name() << " " << message->actor_ptr() << " mailbox number "
+      LOG(INFO) << "yus actor " << message->get_name() << " " << " mailbox number "
                 << message->mailbox().reader().calc_size();
       ActorExecutor executor(*message, dispatcher, ActorExecutor::Options().with_from_queue());
     } else {
@@ -59,7 +59,7 @@ bool CpuWorker::try_pop_local(SchedulerMessage &message) {
   SchedulerMessage::Raw *raw_message;
   if (local_queues_[id_].try_pop(raw_message)) {
     message = SchedulerMessage(SchedulerMessage::acquire_t{}, raw_message);
-    LOG(INFO) << "yus " << message->get_name() << "from local queue_" << &local_queues_[id_] << message->actor_ptr();
+    LOG(INFO) << "yus " << message->get_name() << "from local queue_" << &local_queues_[id_];
     return true;
   }
   return false;
@@ -69,7 +69,7 @@ bool CpuWorker::try_pop_global(SchedulerMessage &message, size_t thread_id) {
   SchedulerMessage::Raw *raw_message;
   if (queue_.try_pop(raw_message, thread_id)) {
     message = SchedulerMessage(SchedulerMessage::acquire_t{}, raw_message);
-    LOG(INFO) << "yus " << message->get_name() << "from global queue_ " << message->actor_ptr();
+    LOG(INFO) << "yus " << message->get_name() << "from global queue_ ";
     return true;
   }
   return false;
@@ -94,8 +94,7 @@ bool CpuWorker::try_pop(SchedulerMessage &message, size_t thread_id) {
     if (local_queues_[id_].steal(raw_message, local_queues_[pos])) {
       message = SchedulerMessage(SchedulerMessage::acquire_t{}, raw_message);
 
-      LOG(INFO) << " yus " << thread_id << " steal from " << i + id_ << " " << message->actor_ptr() << " name "
-                << message->get_name();
+      LOG(INFO) << " yus " << thread_id << " steal from " << pos << " " << " name " << message->get_name();
       return true;
     }
   }

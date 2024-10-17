@@ -180,8 +180,8 @@ void Scheduler::ContextImpl::add_to_queue(ActorInfoPtr actor_info_ptr, Scheduler
       if (should_notify) {
         info.cpu_queue_waiter->notify();
       }
-      LOG(ERROR) << "yus add to queue: " << name << actor_info_ptr->actor_ptr() << " sche id " << scheduler_id.value()
-                 << " " << get_scheduler_id().value() << " worker id " << cpu_worker_id_.value() << " thread id "
+      LOG(ERROR) << "yus add to queue: " << name << " sche id " << scheduler_id.value() << " "
+                 << get_scheduler_id().value() << " worker id " << cpu_worker_id_.value() << " thread id "
                  << get_thread_id();
       return;
     }
@@ -220,7 +220,7 @@ void Scheduler::ContextImpl::set_alarm_timestamp(const ActorInfoPtr &actor_info_
   // 2. Update timeout only when it has increased
   // 3. Use signal-like logic to combile multiple timeout updates into one
   if (!has_heap()) {
-    LOG(INFO) << " yus " << "set alarm " << actor_info_ptr->get_name() << " " << actor_info_ptr->actor_ptr();
+    LOG(INFO) << " yus " << "set alarm " << actor_info_ptr->get_name() << " ";
     add_to_queue(actor_info_ptr, {}, true);
     return;
   }
