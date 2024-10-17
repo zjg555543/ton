@@ -183,7 +183,7 @@ td::Status AdnlExtConnection::receive_packet(td::BufferSlice data) {
   if (processed) {
     return td::Status::OK();
   }
-
+  LOG(INFO) << "receive_packet, 1";
   return process_packet(std::move(data));
 }
 

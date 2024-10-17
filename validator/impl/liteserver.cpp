@@ -221,7 +221,8 @@ void LiteQuery::perform() {
           [&](lite_api::liteServer_getVersion& q) { this->perform_getVersion(); },
           [&](lite_api::liteServer_getMasterchainInfo& q) { 
             LOG(INFO) << "fatal_error 120";
-            this->perform_getMasterchainInfo(-1); },
+            //this->perform_getMasterchainInfo(-1); 
+            },
           [&](lite_api::liteServer_getMasterchainInfoExt& q) {
             LOG(INFO) << "fatal_error 121";
             this->perform_getMasterchainInfo(q.mode_ & 0x7fffffff);
@@ -232,10 +233,12 @@ void LiteQuery::perform() {
           },
           [&](lite_api::liteServer_getState& q) { this->perform_getState(ton::create_block_id(q.id_)); },
           [&](lite_api::liteServer_getAccountState& q) {
+            LOG(INFO) << "perform_getAccountState before 1";
             this->perform_getAccountState(ton::create_block_id(q.id_), static_cast<WorkchainId>(q.account_->workchain_),
                                           q.account_->id_, 0);
           },
           [&](lite_api::liteServer_getAccountStatePrunned& q) {
+            LOG(INFO) << "perform_getAccountState before 2";
             this->perform_getAccountState(ton::create_block_id(q.id_), static_cast<WorkchainId>(q.account_->workchain_),
                                           q.account_->id_, 0x40000000);
           },
@@ -354,6 +357,7 @@ void LiteQuery::perform_getMasterchainInfo(int mode) {
 
 void LiteQuery::gotMasterchainInfoForAccountState(Ref<ton::validator::MasterchainState> mc_state, BlockIdExt blkid,
                                                   int mode) {
+  LOG(INFO) << "perform_getAccountState before 3";       
   perform_getAccountState(blkid, acc_workchain_, acc_addr_, 0x80000000);
 }
 
@@ -983,6 +987,7 @@ void LiteQuery::perform_runSmcMethod(BlockIdExt blkid, WorkchainId workchain, St
     fatal_error("virtualization error while deserializing parameter list: "s + vme.get_msg());
     return;
   }
+  LOG(INFO) << "perform_getAccountState before 4";
   perform_getAccountState(blkid, workchain, addr, mode | 0x10000);
 }
 
