@@ -1954,6 +1954,7 @@ void ValidatorEngine::start_full_node() {
 }
 
 void ValidatorEngine::started_full_node() {
+  LOG(INFO) << "started_full_node, 1";
   start_lite_server();
 }
 
@@ -1966,6 +1967,7 @@ void ValidatorEngine::add_lite_server(ton::PublicKeyHash id, td::uint16 port) {
 }
 
 void ValidatorEngine::start_lite_server() {
+  LOG(INFO) << "start_lite_server, 1";
   for (auto &s : config_.liteservers) {
     add_lite_server(s.second, static_cast<td::uint16>(s.first));
   }
@@ -2192,7 +2194,7 @@ void ValidatorEngine::try_add_liteserver(ton::PublicKeyHash id, td::int32 port, 
     promise.set_value(td::Unit());
     return;
   }
-
+  LOG(INFO) << "try_add_liteserver, 1";
   add_lite_server(id, static_cast<td::uint16>(port));
 
   write_config(std::move(promise));
@@ -2888,6 +2890,7 @@ void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_changeFul
 
 void ValidatorEngine::run_control_query(ton::ton_api::engine_validator_addLiteserver &query, td::BufferSlice data,
                                         ton::PublicKeyHash src, td::uint32 perm, td::Promise<td::BufferSlice> promise) {
+  LOG(INFO) << "run_control_query, 1";
   if (!(perm & ValidatorEnginePermissions::vep_modify)) {
     promise.set_value(create_control_query_error(td::Status::Error(ton::ErrorCode::error, "not authorized")));
     return;
