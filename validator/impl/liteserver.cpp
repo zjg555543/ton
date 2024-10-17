@@ -225,11 +225,8 @@ void LiteQuery::perform() {
           [&](lite_api::liteServer_getTime& q) { this->perform_getTime(); },
           [&](lite_api::liteServer_getVersion& q) { this->perform_getVersion(); },
           [&](lite_api::liteServer_getMasterchainInfo& q) { 
-            static int a = 1;
-            LOG(INFO) << "fatal_error 120" << a++;
-            if (a <= 10) {
-              this->perform_getMasterchainInfo(-1); 
-            }
+            LOG(INFO) << "fatal_error 120";
+            this->perform_getMasterchainInfo(-1); 
             },
           [&](lite_api::liteServer_getMasterchainInfoExt& q) {
             LOG(INFO) << "fatal_error 121";
