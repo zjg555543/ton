@@ -154,6 +154,7 @@ void OverlayImpl::receive_query(adnl::AdnlNodeIdShort src, td::BufferSlice data,
 
   if (R.is_error()) {
     // allow custom query to be here
+    LOG(INFO) << "process_query, 3";
     callback_->receive_query(src, overlay_id_, std::move(data), std::move(promise));
     return;
   }
