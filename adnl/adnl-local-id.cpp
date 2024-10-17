@@ -88,8 +88,8 @@ void AdnlLocalId::deliver_query(AdnlNodeIdShort src, td::BufferSlice data, td::P
     auto f = cb.first;
     if (f.length() <= s.length() && s.as_slice().substr(0, f.length()) == f) {
       LOG(INFO) << "process_query, 2 over";
-      //cb.second->receive_query(src, short_id_, std::move(s), std::move(promise));
-      //return;
+      cb.second->receive_query(src, short_id_, std::move(s), std::move(promise));
+      return;
     }
   }
   VLOG(ADNL_INFO) << this << ": dropping IN message from " << src

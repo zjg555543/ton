@@ -581,7 +581,7 @@ void ValidatorManagerImpl::add_ext_server_id(adnl::AdnlNodeIdShort id) {
     }
     void receive_query(adnl::AdnlNodeIdShort src, adnl::AdnlNodeIdShort dst, td::BufferSlice data,
                        td::Promise<td::BufferSlice> promise) override {
-                        LOG(INFO) << "add_ext_server_id, 1";
+                        LOG(INFO) << "run_ext_query, 1-1";
       td::actor::send_closure(id_, &ValidatorManagerImpl::run_ext_query, std::move(data), std::move(promise));
     }
 
