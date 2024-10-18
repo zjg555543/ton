@@ -183,6 +183,7 @@ class CellDb : public CellDbBase {
   td::Ref<ValidatorManagerOptions> opts_;
 
   td::actor::ActorOwn<CellDbIn> cell_db_;
+  td::actor::ActorOwn<CellDbIn> cell_db_read_[1000];
 
   std::unique_ptr<vm::DynamicBagOfCellsDb> boc_;
   bool started_ = false;

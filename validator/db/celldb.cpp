@@ -26,6 +26,8 @@
 #include "ton/ton-tl.hpp"
 #include "ton/ton-io.hpp"
 #include "common/delay.h"
+#include <iostream>
+#include <random>
 
 namespace ton {
 
@@ -443,24 +445,38 @@ void CellDbIn::migrate_cells() {
   }
 }
 
+int getRandom(){
+    std::random_device rd;
+    std::mt19937 gen(rd()); // Mersenne Twister 19937 伪随机数生成器
+
+    // 定义范围 0 到 999
+    std::uniform_int_distribution<> distr(0, 999);
+
+    // 生成一个随机数
+    int random_number = distr(gen);
+
+    return random_number;
+}
+
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, std::uint64_t counter_) {
   // LOG(INFO) << " load_cell: counter" << counter_  << ", 1";
+  int ranNum = getRandom();
   LOG(INFO) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   if (!started_) {
-    // LOG(INFO) << " load_cell: counter" << counter_  << ", 2";
-    td::actor::send_closure(cell_db_, &CellDbIn::load_cell, hash, std::move(promise));
+    LOG(INFO) << " load_cell: counter" << counter_  << ", 2";
+    td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
   } else {
-    // LOG(INFO) << " load_cell: counter" << counter_  << ", 3";
+    LOG(INFO) << " load_cell: counter" << counter_  << ", 3";
     auto P = td::PromiseCreator::lambda(
-        [cell_db_in = cell_db_.get(), hash, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
-          // LOG(INFO) << " load_cell: counter" << counter_  << ", 5";
+        [cell_db_in = cell_db_read_[ranNum].get(), hash, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
+          LOG(INFO) << " load_cell: counter" << counter_  << ", 5";
           if (R.is_error()) {
             td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise));
-            // LOG(INFO) << " load_cell: counter" << counter_  << ", 6";
+            LOG(INFO) << " load_cell: counter" << counter_  << ", 6";
           } else {
-            // LOG(INFO) << " load_cell: counter" << counter_  << ", 7-0";
+            LOG(INFO) << " load_cell: counter" << counter_  << ", 7-0";
             promise.set_result(R.move_as_ok());
-            // LOG(INFO) << " load_cell: counter" << counter_  << ", 7";
+            LOG(INFO) << " load_cell: counter" << counter_  << ", 7";
           }
         });
     // LOG(INFO) << " load_cell: counter" << counter_  << ", 4";
