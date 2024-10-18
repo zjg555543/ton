@@ -71,8 +71,12 @@ void CellDbBase::execute_sync(std::function<void()> f) {
 }
 
 CellDbIn::CellDbIn(td::actor::ActorId<RootDb> root_db, td::actor::ActorId<CellDb> parent, std::string path,
-                   td::Ref<ValidatorManagerOptions> opts)
+                   td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> cell_db)
     : root_db_(root_db), parent_(parent), path_(std::move(path)), opts_(opts) {
+      if (cell_db != NULL) {
+        LOG(INFO) << "zjg: using provided KeyValue";
+        cell_db_ = cell_db;
+      }
 }
 
 void CellDbIn::start_up() {
@@ -103,7 +107,10 @@ void CellDbIn::start_up() {
     LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
   }
   db_options.use_direct_reads = opts_->get_celldb_direct_io();
-  cell_db_ = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
+  if (cell_db_ == NULL){
+      LOG(INFO) << "zjg: using new KeyValue";
+      cell_db_ = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
+  }
 
   boc_ = vm::DynamicBagOfCellsDb::create();
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
@@ -501,9 +508,23 @@ void CellDb::start_up() {
   CellDbBase::start_up();
   boc_ = vm::DynamicBagOfCellsDb::create();
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
-  cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_);
+
+  td::RocksDbOptions db_options;
+  auto statistics_ = td::RocksDb::create_statistics();
+  if (!opts_->get_disable_rocksdb_stats()) {
+    db_options.snapshot_statistics = std::make_shared<td::RocksDbSnapshotStatistics>();
+  }
+  db_options.statistics = statistics_;
+  if (opts_->get_celldb_cache_size()) {
+    db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
+    LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
+  }
+  db_options.use_direct_reads = opts_->get_celldb_direct_io();
+  auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
+
+  cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rock_db);
   for (int i = 0; i < 1000; i++) {
-    cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_);
+    cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rock_db);
   }
 
   on_load_callback_ = [actor = std::make_shared<td::actor::ActorOwn<CellDbIn::MigrationProxy>>(

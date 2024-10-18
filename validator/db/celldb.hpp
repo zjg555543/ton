@@ -68,7 +68,7 @@ class CellDbIn : public CellDbBase {
   void flush_db_stats();
 
   CellDbIn(td::actor::ActorId<RootDb> root_db, td::actor::ActorId<CellDb> parent, std::string path,
-           td::Ref<ValidatorManagerOptions> opts);
+           td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> cell_db);
 
   void start_up() override;
   void alarm() override;
