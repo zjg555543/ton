@@ -454,21 +454,16 @@ void CellDbIn::migrate_cells() {
 
 int getRandom(){
     std::random_device rd;
-    std::mt19937 gen(rd()); // Mersenne Twister 19937 伪随机数生成器
-
-    // 定义范围 0 到 999
+    std::mt19937 gen(rd());
     std::uniform_int_distribution<> distr(0, 999);
-
-    // 生成一个随机数
     int random_number = distr(gen);
-
     return random_number;
 }
 
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, std::uint64_t counter_) {
   // LOG(INFO) << " load_cell: counter" << counter_  << ", 1";
   int ranNum = getRandom();
-  LOG(INFO) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size();
+  LOG(INFO) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
   if (!started_) {
     LOG(INFO) << " load_cell: counter" << counter_  << ", 2";
     td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
