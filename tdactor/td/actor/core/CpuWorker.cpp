@@ -94,7 +94,8 @@ bool CpuWorker::try_pop(SchedulerMessage &message, size_t thread_id) {
     if (local_queues_[id_].steal(raw_message, local_queues_[pos])) {
       message = SchedulerMessage(SchedulerMessage::acquire_t{}, raw_message);
 
-      LOG(INFO) << " yus " << thread_id << " steal from " << pos << " " << " name " << message->get_name();
+      LOG(INFO) << " yus " << thread_id << "local queue id " << id_ << " steal from " << pos << " " << " name "
+                << message->get_name();
       return true;
     }
   }
