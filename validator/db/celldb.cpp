@@ -502,6 +502,10 @@ void CellDb::start_up() {
   boc_ = vm::DynamicBagOfCellsDb::create();
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
   cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_);
+  for (int i = 0; i < 1000; i++) {
+    cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_);
+  }
+
   on_load_callback_ = [actor = std::make_shared<td::actor::ActorOwn<CellDbIn::MigrationProxy>>(
                            td::actor::create_actor<CellDbIn::MigrationProxy>("celldbmigration", cell_db_.get())),
                        compress_depth = opts_->get_celldb_compress_depth()](const vm::CellLoader::LoadResult& res) {
