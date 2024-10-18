@@ -77,7 +77,7 @@ void ActorExecutor::send(ActorSignals signals) {
 }
 
 void ActorExecutor::start() noexcept {
-  //LOG(ERROR) << "START " << actor_info_.get_name() << " " << tag("from_queue", options_.from_queue);
+  LOG(ERROR) << "yus START " << actor_info_.get_name() << " " << tag("from_queue", options_.from_queue);
   if (is_closed()) {
     return;
   }
@@ -117,13 +117,13 @@ void ActorExecutor::start() noexcept {
 
   while (flush_one_signal(signals)) {
     if (actor_execute_context_.has_immediate_flags()) {
-      LOG(INFO) << " yus " << actor_info_.get_name() << " has_immediate_flags return ";
+      LOG(ERROR) << " yus " << actor_info_.get_name() << " has_immediate_flags return ";
       return;
     }
   }
   while (flush_one_message()) {
     if (actor_execute_context_.has_immediate_flags()) {
-      LOG(INFO) << " yus " << actor_info_.get_name() << " has_immediate_flags return ";
+      LOG(ERROR) << " yus " << actor_info_.get_name() << " has_immediate_flags return " << &actor_execute_context_;
       return;
     }
   }
@@ -234,6 +234,7 @@ bool ActorExecutor::flush_one_message() {
   // LOG(ERROR) << "flush one message " << !!message << " " << actor_info_.get_name();
   LOG(INFO) << "yus " << "flush one message " << " name " << actor_info_.get_name();
   if (!message) {
+    LOG(INFO) << "yus " << " name " << actor_info_.get_name() << " no message return";
     pending_signals_.clear_signal(ActorSignals::Message);
     return false;
   }

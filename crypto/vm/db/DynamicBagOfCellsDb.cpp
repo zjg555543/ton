@@ -17,6 +17,7 @@
     Copyright 2017-2020 Telegram Systems LLP
 */
 #include "vm/db/DynamicBagOfCellsDb.h"
+#include "td/utils/int_types.h"
 #include "vm/db/CellStorage.h"
 #include "vm/db/CellHashTable.h"
 
@@ -99,39 +100,39 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     LOG(INFO) << "yus load cell async 3";
     SimpleExtCellCreator ext_cell_creator(cell_db_reader_);
     auto promise_ptr = std::make_shared<td::Promise<Ref<DataCell>>>(std::move(promise));
-    LOG(INFO) << "yus load cell async 4" << &ext_cell_creator;
+    LOG(INFO) << "yus load cell async 4" << &(ext_cell_creator.get_created_cells());
     executor->execute_async([executor, loader = *loader_, hash = CellHash::from_slice(hash), db = this,
                              ext_cell_creator = std::move(ext_cell_creator),
                              promise = std::move(promise_ptr)]() mutable {
-      LOG(INFO) << "yus load cell async 4 - 1 " << &ext_cell_creator;
+      LOG(INFO) << "yus load cell async 4 - 1 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
       TRY_RESULT_PROMISE((*promise), res, loader.load(hash.as_slice(), true, ext_cell_creator));
-      LOG(INFO) << "yus load cell async 4 - 2 " << &ext_cell_creator;
+      LOG(INFO) << "yus load cell async 4 - 2 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
       if (res.status != CellLoader::LoadResult::Ok) {
-        LOG(INFO) << "yus load cell async 4 - 3 " << &ext_cell_creator;
+        LOG(INFO) << "yus load cell async 4 - 3 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
         promise->set_error(td::Status::Error("cell not found"));
         return;
       }
-      LOG(INFO) << "yus load cell async 4 - 4 " << &ext_cell_creator;
+      LOG(INFO) << "yus load cell async 4 - 4 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
       Ref<Cell> cell = res.cell();
       executor->execute_sync([hash, db, res = std::move(res),
                               ext_cell_creator = std::move(ext_cell_creator)]() mutable {
-        LOG(INFO) << "yus load cell async 4 - 5 " << &ext_cell_creator;
+        LOG(INFO) << "yus load cell async 4 - 5 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
         db->hash_table_.apply(hash.as_slice(), [&](CellInfo &info) {
           db->update_cell_info_loaded(info, hash.as_slice(), std::move(res));
         });
-        LOG(INFO) << "yus load cell async 4 - 6 " << &ext_cell_creator;
+        LOG(INFO) << "yus load cell async 4 - 6 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
         for (auto &ext_cell : ext_cell_creator.get_created_cells()) {
           auto ext_cell_hash = ext_cell->get_hash();
           db->hash_table_.apply(ext_cell_hash.as_slice(),
                                 [&](CellInfo &info) { db->update_cell_info_created_ext(info, std::move(ext_cell)); });
         }
-        LOG(INFO) << "yus load cell async 4 - 7 " << &ext_cell_creator;
+        LOG(INFO) << "yus load cell async 4 - 7 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
       });
       promise->set_result(std::move(cell));
-      LOG(INFO) << "yus load cell async 4 - 8 " << &ext_cell_creator;
+      LOG(INFO) << "yus load cell async 4 - 8 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
     });
 
-    LOG(INFO) << "yus load cell async 5 " << &ext_cell_creator;
+    LOG(INFO) << "yus load cell async 5 " << &(ext_cell_creator.get_created_cells());
   }
   CellInfo &get_cell_info_force(td::Slice hash) {
     return hash_table_.apply(hash, [&](CellInfo &info) { update_cell_info_force(info, hash); });
