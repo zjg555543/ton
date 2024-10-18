@@ -459,7 +459,6 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
             promise.set_result(R.move_as_ok());
           }
         });
-    LOG(INFO) << "yus before local cell async";
     boc_->load_cell_async(hash.as_slice(), async_executor, std::move(P));
   }
 }
