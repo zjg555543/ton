@@ -454,6 +454,7 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
     auto P = td::PromiseCreator::lambda(
         [cell_db_in = cell_db_.get(), hash, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
           if (R.is_error()) {
+            LOG(INFO) << "yus err then send to cell db in";
             td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise));
           } else {
             promise.set_result(R.move_as_ok());
