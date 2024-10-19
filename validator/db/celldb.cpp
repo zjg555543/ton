@@ -463,7 +463,11 @@ int getRandom(){
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, std::uint64_t counter_) {
   // LOG(INFO) << " load_cell: counter" << counter_  << ", 1";
   int ranNum = getRandom();
-  LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+  static int64_t ranCount = 0;
+  ranCount++;
+  if (ranCount % 1000 == 0) {
+    LOG(INFO) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+  }
   if (!started_) {
     LOG(INFO) << " load_cell: counter" << counter_  << ", 2";
     td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
