@@ -173,18 +173,18 @@ void Scheduler::ContextImpl::add_to_queue(ActorInfoPtr actor_info_ptr, Scheduler
       auto raw = actor_info_ptr.release();
       auto should_notify = info.cpu_local_queue[cpu_worker_id_.value()].push(raw, [&](auto value) {
         info.cpu_queue->push(value, get_thread_id());
-        LOG(ERROR) << "yus add to queue overflow: " << name << " sche id " << scheduler_id.value() << " worker id "
+        LOG(INFO) << "yus add to queue overflow: " << name << " sche id " << scheduler_id.value() << " worker id "
                    << cpu_worker_id_.value() << " thread id " << get_thread_id();
       });
       if (should_notify) {
         info.cpu_queue_waiter->notify();
       }
-      LOG(ERROR) << "yus add to queue: " << name << " sche id " << scheduler_id.value() << " "
+      LOG(INFO) << "yus add to queue: " << name << " sche id " << scheduler_id.value() << " "
                  << get_scheduler_id().value() << " worker id " << cpu_worker_id_.value() << " thread id "
                  << get_thread_id();
       return;
     }
-    LOG(ERROR) << "yus add to global queue: " << scheduler_id.value() << "thread id " << get_thread_id();
+    LOG(INFO) << "yus add to global queue: " << scheduler_id.value() << "thread id " << get_thread_id();
     info.cpu_queue->push(actor_info_ptr.release(), get_thread_id());
     info.cpu_queue_waiter->notify();
   }
