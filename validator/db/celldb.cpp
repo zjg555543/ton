@@ -467,6 +467,7 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
   ranCount++;
   if (ranCount % 1000 == 0) {
     LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+    ranCount = 0;
   }
   if (!started_) {
     LOG(INFO) << " load_cell: counter" << counter_  << ", 2";
