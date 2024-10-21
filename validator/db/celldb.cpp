@@ -152,7 +152,7 @@ void CellDbIn::start_up() {
 }
 
 void CellDbIn::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise) {
-  LOG(INFO) << " yus celldbin " << this->get_name() << " "
+  LOG(DEBUG) << "yus celldbin " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   boc_->load_cell_async(hash.as_slice(), async_executor, std::move(promise));
 }
@@ -480,7 +480,7 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
         [cell_db_in = cell_db_read_[ranNum].get(), hash, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
           LOG(INFO) << " load_cell: counter" << counter_  << ", 5";
           if (R.is_error()) {
-            LOG(INFO) << "yus err then send to cell db in";
+            LOG(DEBUG) << "yus err then send to cell db in";
             td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise));
             LOG(INFO) << " load_cell: counter" << counter_  << ", 6";
           } else {

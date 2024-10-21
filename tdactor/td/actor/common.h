@@ -136,7 +136,7 @@ class Scheduler {
           }
         });
         auto name = PSLICE() << "#" << it << ":io";
-        LOG(INFO) << "yus scheduler start " << name << "scheduler size " << schedulers_.size();
+        LOG(DEBUG) << "yus scheduler start " << name << "scheduler size " << schedulers_.size();
         thread.set_name(name);
         thread.detach();
       }
@@ -190,13 +190,13 @@ class Scheduler {
   bool skip_timeouts_{false};
 
   void init() {
-    LOG(INFO) << " yus " << "create actor scheduler size " << infos_.size();
+    LOG(DEBUG) << "yus " << "create actor scheduler size " << infos_.size();
     CHECK(infos_.size() < 256);
     CHECK(!group_info_);
     group_info_ = std::make_shared<core::SchedulerGroupInfo>(infos_.size());
     td::uint8 id = 0;
     for (const auto &info : infos_) {
-      LOG(INFO) << " yus NodeInfo " << id << "cpu thread " << info.cpu_threads_;
+      LOG(DEBUG) << "yus NodeInfo " << id << "cpu thread " << info.cpu_threads_;
       schedulers_.emplace_back(
           td::make_unique<core::Scheduler>(group_info_, core::SchedulerId{id}, info.cpu_threads_, skip_timeouts_));
       id++;
@@ -400,7 +400,7 @@ inline void send_signals_later(ActorRef actor_ref, ActorSignals signals) {
 
 inline void register_actor_info_ptr(core::ActorInfoPtr actor_info_ptr) {
   auto state = actor_info_ptr->state().get_flags_unsafe();
-  LOG(INFO) << "yus register acotr " << actor_info_ptr->get_name() << "thread id " << state.get_scheduler_id().value();
+  LOG(DEBUG) << "yus register acotr " << actor_info_ptr->get_name() << "thread id " << state.get_scheduler_id().value();
   core::SchedulerContext::get()->add_to_queue(std::move(actor_info_ptr), state.get_scheduler_id(), !state.is_shared());
 }
 

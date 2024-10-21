@@ -30,26 +30,26 @@ namespace core {
 void CpuWorker::run() {
   auto thread_id = get_thread_id();
   auto &dispatcher = *SchedulerContext::get();
-  LOG(INFO) << "yus start work " << thread_id;
+  LOG(DEBUG) << "yus start work " << thread_id;
 
   MpmcWaiter::Slot slot;
   waiter_.init_slot(slot, thread_id);
   auto &debug = dispatcher.get_debug();
-  LOG(INFO) << "yus  thread_id" << thread_id << "worker id " << this->id_;
+  LOG(DEBUG) << "yus  thread_id" << thread_id << "worker id " << this->id_;
   while (true) {
     SchedulerMessage message;
     if (try_pop(message, thread_id)) {
       waiter_.stop_wait(slot);
       if (!message) {
-        LOG(INFO) << "yus no message return" << " thread_id " << thread_id;
+        LOG(DEBUG) << "yus no message return" << " thread_id " << thread_id;
         return;
       }
       auto lock = debug.start(message->get_name());
-      LOG(INFO) << "yus actor " << message->get_name() << " " << " mailbox number "
+      LOG(DEBUG) << "yus actor " << message->get_name() << " " << " mailbox number "
                 << message->mailbox().reader().calc_size();
       ActorExecutor executor(*message, dispatcher, ActorExecutor::Options().with_from_queue());
     } else {
-      LOG(INFO) << "yus no message, IDLE";
+      LOG(DEBUG) << "yus no message, IDLE";
       waiter_.wait(slot);
     }
   }
@@ -59,7 +59,7 @@ bool CpuWorker::try_pop_local(SchedulerMessage &message) {
   SchedulerMessage::Raw *raw_message;
   if (local_queues_[id_].try_pop(raw_message)) {
     message = SchedulerMessage(SchedulerMessage::acquire_t{}, raw_message);
-    LOG(INFO) << "yus " << message->get_name() << "from local queue_" << &local_queues_[id_];
+    LOG(DEBUG) << "yus " << message->get_name() << "from local queue_" << &local_queues_[id_];
     return true;
   }
   return false;
@@ -69,7 +69,7 @@ bool CpuWorker::try_pop_global(SchedulerMessage &message, size_t thread_id) {
   SchedulerMessage::Raw *raw_message;
   if (queue_.try_pop(raw_message, thread_id)) {
     message = SchedulerMessage(SchedulerMessage::acquire_t{}, raw_message);
-    LOG(INFO) << "yus " << message->get_name() << "from global queue_ ";
+    LOG(DEBUG) << "yus " << message->get_name() << "from global queue_ ";
     return true;
   }
   return false;
@@ -87,14 +87,14 @@ bool CpuWorker::try_pop(SchedulerMessage &message, size_t thread_id) {
     }
   }
 
-  LOG(INFO) << " yus " << thread_id << " try to steal";
+  LOG(DEBUG) << "yus " << thread_id << " try to steal";
   for (size_t i = 1; i < local_queues_.size(); i++) {
     size_t pos = (i + id_) % local_queues_.size();
     SchedulerMessage::Raw *raw_message;
     if (local_queues_[id_].steal(raw_message, local_queues_[pos])) {
       message = SchedulerMessage(SchedulerMessage::acquire_t{}, raw_message);
 
-      LOG(INFO) << " yus " << thread_id << "local queue id " << id_ << " steal from " << pos << " " << " name "
+      LOG(DEBUG) << "yus " << thread_id << "local queue id " << id_ << " steal from " << pos << " " << " name "
                 << message->get_name();
       return true;
     }

@@ -77,7 +77,7 @@ void ActorExecutor::send(ActorSignals signals) {
 }
 
 void ActorExecutor::start() noexcept {
-  LOG(ERROR) << "yus START " << actor_info_.get_name() << " " << tag("from_queue", options_.from_queue);
+  LOG(DEBUG) << "yus START " << actor_info_.get_name() << " " << tag("from_queue", options_.from_queue);
   if (is_closed()) {
     return;
   }
@@ -117,13 +117,13 @@ void ActorExecutor::start() noexcept {
 
   while (flush_one_signal(signals)) {
     if (actor_execute_context_.has_immediate_flags()) {
-      LOG(ERROR) << " yus " << actor_info_.get_name() << " has_immediate_flags return ";
+      LOG(DEBUG) << "yus " << actor_info_.get_name() << " has_immediate_flags return ";
       return;
     }
   }
   while (flush_one_message()) {
     if (actor_execute_context_.has_immediate_flags()) {
-      LOG(ERROR) << " yus " << actor_info_.get_name() << " has_immediate_flags return " << &actor_execute_context_;
+      LOG(DEBUG) << "yus " << actor_info_.get_name() << " has_immediate_flags return " << &actor_execute_context_;
       return;
     }
   }
@@ -175,7 +175,7 @@ void ActorExecutor::finish() noexcept {
     }
     if (actor_locker_.try_unlock(flags())) {
       if (add_to_queue) {
-        LOG(INFO) << "yus " << actor_info_ptr->get_name() << " finishing ";
+        LOG(DEBUG) << "yus " << actor_info_ptr->get_name() << " finishing ";
         dispatcher_.add_to_queue(std::move(actor_info_ptr), flags().get_scheduler_id(), !flags().is_shared());
       }
       break;
@@ -232,9 +232,9 @@ bool ActorExecutor::flush_one_signal(ActorSignals &signals) {
 bool ActorExecutor::flush_one_message() {
   auto message = actor_info_.mailbox().reader().read();
   // LOG(ERROR) << "flush one message " << !!message << " " << actor_info_.get_name();
-  LOG(INFO) << "yus " << "flush one message " << " name " << actor_info_.get_name();
+  LOG(DEBUG) << "yus " << "flush one message " << " name " << actor_info_.get_name();
   if (!message) {
-    LOG(INFO) << "yus " << " name " << actor_info_.get_name() << " no message return";
+    LOG(DEBUG) << "yus " << " name " << actor_info_.get_name() << " no message return";
     pending_signals_.clear_signal(ActorSignals::Message);
     return false;
   }
