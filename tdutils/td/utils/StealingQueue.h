@@ -20,6 +20,7 @@
 
 #include "td/utils/Status.h"
 #include "td/utils/Span.h"
+#include "td/utils/logging.h"
 namespace td {
 template <class T, size_t N = 256 /*must be a power of two*/>
 class StealingQueue {
@@ -89,6 +90,8 @@ class StealingQueue {
       n -= n / 2;
       n = td::min(n, static_cast<size_t>(head + N - tail));
       if (n == 0) {
+        LOG(INFO) << "yus steal failed" << " other head " << other_head << " other tail " << other_tail << " N " << N
+                  << " own head " << head << " own tail " << tail;
         return false;
       }
 

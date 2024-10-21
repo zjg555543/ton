@@ -20,6 +20,7 @@
 
 #include "td/actor/core/CpuWorker.h"
 #include "td/actor/core/IoWorker.h"
+#include "td/utils/logging.h"
 
 namespace td {
 namespace actor {
@@ -219,6 +220,7 @@ void Scheduler::ContextImpl::set_alarm_timestamp(const ActorInfoPtr &actor_info_
   // 2. Update timeout only when it has increased
   // 3. Use signal-like logic to combile multiple timeout updates into one
   if (!has_heap()) {
+    LOG(INFO) << " yus " << "set alarm " << actor_info_ptr->get_name() << " ";
     add_to_queue(actor_info_ptr, {}, true);
     return;
   }
