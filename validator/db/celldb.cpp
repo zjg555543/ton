@@ -143,7 +143,7 @@ void CellDbIn::start_up() {
 }
 
 void CellDbIn::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise) {
-  LOG(INFO) << " yus celldbin " << this->get_name() << " "
+  LOG(DEBUG) << "yus celldbin " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   boc_->load_cell_async(hash.as_slice(), async_executor, std::move(promise));
 }
@@ -446,15 +446,15 @@ void CellDbIn::migrate_cells() {
 }
 
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise) {
-  LOG(INFO) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << " ";
+  LOG(DEBUG) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << " ";
   if (!started_) {
-    LOG(INFO) << "directly send_closure to celldbin";
+    LOG(DEBUG) << "yus directly send_closure to celldbin";
     td::actor::send_closure(cell_db_, &CellDbIn::load_cell, hash, std::move(promise));
   } else {
     auto P = td::PromiseCreator::lambda(
         [cell_db_in = cell_db_.get(), hash, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
           if (R.is_error()) {
-            LOG(INFO) << "yus err then send to cell db in";
+            LOG(DEBUG) << "yus err then send to cell db in";
             td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise));
           } else {
             promise.set_result(R.move_as_ok());
