@@ -21,6 +21,7 @@
 #include "common/refcnt.hpp"
 #include "interfaces/validator-manager.h"
 #include "interfaces/db.h"
+#include "td/actor/ActorStats.h"
 #include "td/actor/PromiseFuture.h"
 #include "td/utils/SharedSlice.h"
 #include "td/utils/buffer.h"
@@ -581,6 +582,8 @@ class ValidatorManagerImpl : public ValidatorManager {
 
   void prepare_stats(td::Promise<std::vector<std::pair<std::string, std::string>>> promise) override;
 
+  void prepare_actor_stats(td::Promise<std::string> promise) override;
+
   void prepare_perf_timer_stats(td::Promise<std::vector<PerfTimerStats>> promise) override;
   void add_perf_timer_stat(std::string name, double duration) override;
 
@@ -677,6 +680,7 @@ class ValidatorManagerImpl : public ValidatorManager {
  private:
   std::unique_ptr<Callback> callback_;
   td::actor::ActorOwn<Db> db_;
+  td::actor::ActorOwn<td::actor::ActorStats> actor_stats_;
 
   bool started_ = false;
   bool allow_validate_ = false;
