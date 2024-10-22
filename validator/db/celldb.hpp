@@ -183,7 +183,7 @@ class CellDb : public CellDbBase {
   td::Ref<ValidatorManagerOptions> opts_;
 
   td::actor::ActorOwn<CellDbIn> cell_db_;
-  td::actor::ActorOwn<CellDbIn> cell_db_read_[1000];
+  td::actor::ActorOwn<CellDbIn> cell_db_read_[10];
   std::shared_ptr<vm::KeyValue> rocks_db_;
 
   std::unique_ptr<vm::DynamicBagOfCellsDb> boc_;

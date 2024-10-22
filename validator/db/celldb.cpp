@@ -457,7 +457,7 @@ void CellDbIn::migrate_cells() {
 int getRandom1(){
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distr(0, 999);
+    std::uniform_int_distribution<> distr(0, 9);
     int random_number = distr(gen);
     return random_number;
 }
@@ -468,18 +468,19 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
   static int64_t ranCount = 0;
   ranCount++;
   if (ranCount % 1000 == 0) {
-    // LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
-    LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size();
+    LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+    // LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size();
     ranCount = 0;
   }
   if (!started_) {
     LOG(INFO) << " load_cell: counter" << counter_  << ", 2";
-    // td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
-    td::actor::send_closure(cell_db_, &CellDbIn::load_cell, hash, std::move(promise));
+    td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
+    // td::actor::send_closure(cell_db_, &CellDbIn::load_cell, hash, std::move(promise));
   } else {
     LOG(INFO) << " load_cell: counter" << counter_  << ", 3";
     auto P = td::PromiseCreator::lambda(
-        [cell_db_in = cell_db_.get(), hash, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
+       //[cell_db_in = cell_db_.get(), hash, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
+        [cell_db_in = cell_db_read_[ranNum].get(), hash, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
           LOG(INFO) << " load_cell: counter" << counter_  << ", 5";
           if (R.is_error()) {
             LOG(DEBUG) << "yus err then send to cell db in";
@@ -528,9 +529,9 @@ void CellDb::start_up() {
   // auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
 
   cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
-  // for (int i = 0; i < 10; i++) {
-  //   cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rock_db);
-  // }
+  for (int i = 0; i < 10; i++) {
+    cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, cell_db_);
+  }
 
   on_load_callback_ = [actor = std::make_shared<td::actor::ActorOwn<CellDbIn::MigrationProxy>>(
                            td::actor::create_actor<CellDbIn::MigrationProxy>("celldbmigration", cell_db_.get())),
