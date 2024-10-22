@@ -37,7 +37,7 @@ namespace ton {
 
 namespace validator {
 
-const int THREAD_COUNTS = 20;
+const int THREAD_COUNTS = 10;
 
 int GetRandom();
 
