@@ -454,7 +454,7 @@ void CellDbIn::migrate_cells() {
   }
 }
 
-int getRandom(){
+int getRandom1(){
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distr(0, 999);
@@ -464,7 +464,7 @@ int getRandom(){
 
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, std::uint64_t counter_) {
   // LOG(INFO) << " load_cell: counter" << counter_  << ", 1";
-  int ranNum = getRandom();
+  int ranNum = getRandom1();
   static int64_t ranCount = 0;
   ranCount++;
   if (ranCount % 1000 == 0) {

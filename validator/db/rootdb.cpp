@@ -250,7 +250,7 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
   }
 }
 
-int getRandom(){
+int getRandom2(){
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distr(0, 99);
@@ -284,7 +284,7 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
         });
     LOG(INFO) << "get_block_state, counter" << counter_  << ", 4";
 
-    int ranNum = getRandom();
+    int ranNum = getRandom2();
     static int64_t ranCount = 0;
     ranCount++;
     if (ranCount % 1000 == 0) {
