@@ -28,12 +28,18 @@
 #include "validator.h"
 #include "db-utils.h"
 #include "td/db/RocksDb.h"
+#include <iostream>
+#include <random>
 
 namespace rocksdb {
 class Statistics;
 }
 
 namespace ton {
+
+const int THREAD_COUNTS = 20;
+
+int GetRandom();
 
 namespace validator {
 
@@ -68,7 +74,7 @@ class CellDbIn : public CellDbBase {
   void flush_db_stats();
 
   CellDbIn(td::actor::ActorId<RootDb> root_db, td::actor::ActorId<CellDb> parent, std::string path,
-           td::Ref<ValidatorManagerOptions> opts);
+           td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> cell_db, std::shared_ptr<vm::KeyValue>);
 
   void start_up() override;
   void alarm() override;
@@ -171,8 +177,8 @@ class CellDb : public CellDbBase {
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
 
-  CellDb(td::actor::ActorId<RootDb> root_db, std::string path, td::Ref<ValidatorManagerOptions> opts)
-      : root_db_(root_db), path_(path), opts_(opts) {
+  CellDb(td::actor::ActorId<RootDb> root_db, std::string path, td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> rocks_db)
+      : root_db_(root_db), path_(path), opts_(opts), rocks_db_(rocks_db) {
   }
 
   void start_up() override;
@@ -183,6 +189,8 @@ class CellDb : public CellDbBase {
   td::Ref<ValidatorManagerOptions> opts_;
 
   td::actor::ActorOwn<CellDbIn> cell_db_;
+  td::actor::ActorOwn<CellDbIn> cell_db_read_[THREAD_COUNTS];
+  std::shared_ptr<vm::KeyValue> rocks_db_;
 
   std::unique_ptr<vm::DynamicBagOfCellsDb> boc_;
   bool started_ = false;
