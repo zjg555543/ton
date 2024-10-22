@@ -678,7 +678,7 @@ class ValidatorManagerImpl : public ValidatorManager {
   std::unique_ptr<Callback> callback_;
   td::actor::ActorOwn<Db> db_;
 
-  bool started_ = true;
+  bool started_ = false;
   bool allow_validate_ = false;
 
  private:
