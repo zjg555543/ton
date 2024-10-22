@@ -468,16 +468,18 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
   static int64_t ranCount = 0;
   ranCount++;
   if (ranCount % 1000 == 0) {
-    LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+    // LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+    LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size();
     ranCount = 0;
   }
   if (!started_) {
     LOG(INFO) << " load_cell: counter" << counter_  << ", 2";
-    td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
+    // td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
+    td::actor::send_closure(cell_db_, &CellDbIn::load_cell, hash, std::move(promise));
   } else {
     LOG(INFO) << " load_cell: counter" << counter_  << ", 3";
     auto P = td::PromiseCreator::lambda(
-        [cell_db_in = cell_db_read_[ranNum].get(), hash, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
+        [cell_db_in = cell_db_.get(), hash, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
           LOG(INFO) << " load_cell: counter" << counter_  << ", 5";
           if (R.is_error()) {
             LOG(DEBUG) << "yus err then send to cell db in";
@@ -512,23 +514,23 @@ void CellDb::start_up() {
   boc_ = vm::DynamicBagOfCellsDb::create();
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
 
-  td::RocksDbOptions db_options;
-  auto statistics_ = td::RocksDb::create_statistics();
-  if (!opts_->get_disable_rocksdb_stats()) {
-    db_options.snapshot_statistics = std::make_shared<td::RocksDbSnapshotStatistics>();
-  }
-  db_options.statistics = statistics_;
-  if (opts_->get_celldb_cache_size()) {
-    db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
-    LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
-  }
-  db_options.use_direct_reads = opts_->get_celldb_direct_io();
-  auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
+  // td::RocksDbOptions db_options;
+  // auto statistics_ = td::RocksDb::create_statistics();
+  // if (!opts_->get_disable_rocksdb_stats()) {
+  //   db_options.snapshot_statistics = std::make_shared<td::RocksDbSnapshotStatistics>();
+  // }
+  // db_options.statistics = statistics_;
+  // if (opts_->get_celldb_cache_size()) {
+  //   db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
+  //   LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
+  // }
+  // db_options.use_direct_reads = opts_->get_celldb_direct_io();
+  // auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
 
-  cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rock_db);
-  for (int i = 0; i < 1000; i++) {
-    cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rock_db);
-  }
+  cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
+  // for (int i = 0; i < 10; i++) {
+  //   cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rock_db);
+  // }
 
   on_load_callback_ = [actor = std::make_shared<td::actor::ActorOwn<CellDbIn::MigrationProxy>>(
                            td::actor::create_actor<CellDbIn::MigrationProxy>("celldbmigration", cell_db_.get())),

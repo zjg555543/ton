@@ -145,6 +145,7 @@ class RootDb : public Db {
   td::Ref<ValidatorManagerOptions> opts_;
 
   td::actor::ActorOwn<CellDb> cell_db_;
+  td::actor::ActorOwn<CellDb> cell_db_read_[100];
   td::actor::ActorOwn<StateDb> state_db_;
   td::actor::ActorOwn<StaticFilesDb> static_files_db_;
   td::actor::ActorOwn<ArchiveManager> archive_db_;

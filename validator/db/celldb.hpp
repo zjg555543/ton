@@ -171,8 +171,8 @@ class CellDb : public CellDbBase {
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
 
-  CellDb(td::actor::ActorId<RootDb> root_db, std::string path, td::Ref<ValidatorManagerOptions> opts)
-      : root_db_(root_db), path_(path), opts_(opts) {
+  CellDb(td::actor::ActorId<RootDb> root_db, std::string path, td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> rocks_db)
+      : root_db_(root_db), path_(path), opts_(opts),  rocks_db_(rocks_db) {
   }
 
   void start_up() override;
@@ -184,6 +184,7 @@ class CellDb : public CellDbBase {
 
   td::actor::ActorOwn<CellDbIn> cell_db_;
   td::actor::ActorOwn<CellDbIn> cell_db_read_[1000];
+  std::shared_ptr<vm::KeyValue> rocks_db_;
 
   std::unique_ptr<vm::DynamicBagOfCellsDb> boc_;
   bool started_ = false;

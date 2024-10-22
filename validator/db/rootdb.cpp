@@ -26,6 +26,8 @@
 #include "common/checksum.h"
 #include "validator/stats-merger.h"
 #include "td/actor/MultiPromise.h"
+#include <iostream>
+#include <random>
 
 namespace ton {
 
@@ -248,6 +250,14 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
   }
 }
 
+int getRandom(){
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distr(0, 99);
+    int random_number = distr(gen);
+    return random_number;
+}
+
 void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) {
   LOG(INFO) << "get_block_state, counter" << counter_  << ", 1";
   if (handle->inited_state_boc()) {
@@ -273,7 +283,16 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
           }
         });
     LOG(INFO) << "get_block_state, counter" << counter_  << ", 4";
-    td::actor::send_closure(cell_db_, &CellDb::load_cell, handle->state(), std::move(P), counter_);
+
+    int ranNum = getRandom();
+    static int64_t ranCount = 0;
+    ranCount++;
+    if (ranCount % 1000 == 0) {
+      LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+      ranCount = 0;
+    }
+    
+    td::actor::send_closure(cell_db_read_[ranNum], &CellDb::load_cell, handle->state(), std::move(P), counter_);
     LOG(INFO) << "get_block_state, counter" << counter_  << ", 4-1";
   } else {
     LOG(INFO) << "get_block_state, counter" << counter_  << ", 7-0";
@@ -424,7 +443,26 @@ void RootDb::get_hardforks(td::Promise<std::vector<BlockIdExt>> promise) {
 }
 
 void RootDb::start_up() {
-  cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), root_path_ + "/celldb/", opts_);
+
+  td::RocksDbOptions db_options;
+  auto statistics_ = td::RocksDb::create_statistics();
+  if (!opts_->get_disable_rocksdb_stats()) {
+    db_options.snapshot_statistics = std::make_shared<td::RocksDbSnapshotStatistics>();
+  }
+  db_options.statistics = statistics_;
+  if (opts_->get_celldb_cache_size()) {
+    db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
+    LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
+  }
+  db_options.use_direct_reads = opts_->get_celldb_direct_io();
+  auto path = root_path_ + "/celldb/";
+  auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path, std::move(db_options)).move_as_ok());
+
+  cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
+  for (int i = 0; i < 100; i++){
+    cell_db_read_[i] = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
+  }
+
   state_db_ = td::actor::create_actor<StateDb>("statedb", actor_id(this), root_path_ + "/state/");
   static_files_db_ = td::actor::create_actor<StaticFilesDb>("staticfilesdb", actor_id(this), root_path_ + "/static/");
   archive_db_ = td::actor::create_actor<ArchiveManager>("archive", actor_id(this), root_path_, opts_);
