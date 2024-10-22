@@ -454,17 +454,17 @@ void CellDbIn::migrate_cells() {
   }
 }
 
-int getRandom1(){
+int GetRandom(){
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distr(0, 9);
+    std::uniform_int_distribution<> distr(0, THREAD_COUNTS -1 );
     int random_number = distr(gen);
     return random_number;
 }
 
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, std::uint64_t counter_) {
   // LOG(INFO) << " load_cell: counter" << counter_  << ", 1";
-  int ranNum = getRandom1();
+  int ranNum = GetRandom();
   static int64_t ranCount = 0;
   ranCount++;
   if (ranCount % 1000 == 0) {
@@ -529,7 +529,7 @@ void CellDb::start_up() {
   // auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
 
   cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < THREAD_COUNTS; i++) {
     cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
   }
 

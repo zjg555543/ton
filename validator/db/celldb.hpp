@@ -37,6 +37,10 @@ namespace ton {
 
 namespace validator {
 
+const int THREAD_COUNTS = 20;
+
+int GetRandom();
+
 class RootDb;
 
 class CellDb;
@@ -183,7 +187,7 @@ class CellDb : public CellDbBase {
   td::Ref<ValidatorManagerOptions> opts_;
 
   td::actor::ActorOwn<CellDbIn> cell_db_;
-  td::actor::ActorOwn<CellDbIn> cell_db_read_[10];
+  td::actor::ActorOwn<CellDbIn> cell_db_read_[THREAD_COUNTS];
   std::shared_ptr<vm::KeyValue> rocks_db_;
 
   std::unique_ptr<vm::DynamicBagOfCellsDb> boc_;

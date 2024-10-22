@@ -250,14 +250,6 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
   }
 }
 
-int getRandom2(){
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<> distr(0, 9);
-    int random_number = distr(gen);
-    return random_number;
-}
-
 void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) {
   LOG(INFO) << "get_block_state, counter" << counter_  << ", 1";
   if (handle->inited_state_boc()) {
@@ -284,7 +276,7 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
         });
     LOG(INFO) << "get_block_state, counter" << counter_  << ", 4";
 
-    int ranNum = getRandom2();
+    int ranNum = GetRandom();
     static int64_t ranCount = 0;
     ranCount++;
     if (ranCount % 1000 == 0) {
@@ -459,7 +451,7 @@ void RootDb::start_up() {
   auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path, std::move(db_options)).move_as_ok());
 
   cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
-  for (int i = 0; i < 10; i++){
+  for (int i = 0; i < THREAD_COUNTS; i++){
     cell_db_read_[i] = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
   }
 
