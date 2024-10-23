@@ -265,11 +265,11 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
           }
         });
 
-    int ranNum = GetRandom();
+    int ranNum = GetDBRandomNum();
     static int64_t ranCount = 0;
     ranCount++;
     if (ranCount % 1000 == 0) {
-      LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+      LOG(ERROR) << "RootDb mailbox: " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
       ranCount = 0;
     }
 

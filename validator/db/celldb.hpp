@@ -28,19 +28,12 @@
 #include "validator.h"
 #include "db-utils.h"
 #include "td/db/RocksDb.h"
-#include <iostream>
-#include <random>
 
 namespace rocksdb {
 class Statistics;
 }
 
 namespace ton {
-
-const int THREAD_COUNTS = 20;
-
-int GetRandom();
-
 namespace validator {
 
 class RootDb;
@@ -74,7 +67,7 @@ class CellDbIn : public CellDbBase {
   void flush_db_stats();
 
   CellDbIn(td::actor::ActorId<RootDb> root_db, td::actor::ActorId<CellDb> parent, std::string path,
-           td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> cell_db, std::shared_ptr<vm::KeyValue>);
+           td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> cell_db);
 
   void start_up() override;
   void alarm() override;
