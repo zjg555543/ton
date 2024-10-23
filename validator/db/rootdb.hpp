@@ -144,7 +144,8 @@ class RootDb : public Db {
   std::string root_path_;
   td::Ref<ValidatorManagerOptions> opts_;
 
-  td::actor::ActorOwn<CellDb> cell_db_;
+  // td::actor::ActorOwn<CellDb> cell_db_;
+  td::actor::ActorOwn<CellDb> cell_db_read_[THREAD_COUNTS];
   td::actor::ActorOwn<StateDb> state_db_;
   td::actor::ActorOwn<StaticFilesDb> static_files_db_;
   td::actor::ActorOwn<ArchiveManager> archive_db_;

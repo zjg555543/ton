@@ -38,7 +38,6 @@ class DB;
 }  // namespace rocksdb
 
 namespace ton {
-
 namespace validator {
 
 class RootDb;
@@ -73,7 +72,7 @@ class CellDbIn : public CellDbBase {
   void flush_db_stats();
 
   CellDbIn(td::actor::ActorId<RootDb> root_db, td::actor::ActorId<CellDb> parent, std::string path,
-           td::Ref<ValidatorManagerOptions> opts);
+           td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> cell_db);
 
   void start_up() override;
   void alarm() override;
@@ -207,8 +206,8 @@ class CellDb : public CellDbBase {
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
 
-  CellDb(td::actor::ActorId<RootDb> root_db, std::string path, td::Ref<ValidatorManagerOptions> opts)
-      : root_db_(root_db), path_(path), opts_(opts) {
+  CellDb(td::actor::ActorId<RootDb> root_db, std::string path, td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> rocks_db)
+      : root_db_(root_db), path_(path), opts_(opts), rocks_db_(rocks_db) {
   }
 
   void start_up() override;
@@ -218,7 +217,8 @@ class CellDb : public CellDbBase {
   std::string path_;
   td::Ref<ValidatorManagerOptions> opts_;
 
-  td::actor::ActorOwn<CellDbIn> cell_db_;
+  td::actor::ActorOwn<CellDbIn> cell_db_read_[THREAD_COUNTS];
+  std::shared_ptr<vm::KeyValue> rocks_db_;
 
   std::unique_ptr<vm::DynamicBagOfCellsDb> boc_;
   std::shared_ptr<const vm::DynamicBagOfCellsDb> in_memory_boc_;

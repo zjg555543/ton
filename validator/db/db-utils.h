@@ -30,4 +30,8 @@ class PercentileStats {
   std::multiset<double> values_;
 };
 
+const int THREAD_COUNTS = 10;
+int GetDBRandomNum();
+
+
 }  // namespace ton::validator

@@ -19,6 +19,8 @@
 #include "td/utils/logging.h"
 
 #include <cmath>
+#include <iostream>
+#include <random>
 
 namespace ton::validator {
 
@@ -49,6 +51,17 @@ std::string PercentileStats::to_string() const {
 
 void PercentileStats::clear() {
   values_.clear();
+}
+
+int GetDBRandomNum(){
+    if (THREAD_COUNTS <= 1) {
+        return 0;
+    }
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distr(0, THREAD_COUNTS -1);
+    int random_number = distr(gen);
+    return random_number;
 }
 
 }  // namespace ton::validator

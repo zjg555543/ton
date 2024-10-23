@@ -69,8 +69,12 @@ void CellDbBase::execute_sync(std::function<void()> f) {
 }
 
 CellDbIn::CellDbIn(td::actor::ActorId<RootDb> root_db, td::actor::ActorId<CellDb> parent, std::string path,
-                   td::Ref<ValidatorManagerOptions> opts)
-    : root_db_(root_db), parent_(parent), path_(std::move(path)), opts_(opts) {
+                   td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> cell_db)
+    : root_db_(root_db), parent_(parent), path_(std::move(path)), opts_(opts){
+      if (cell_db != NULL) {
+        LOG(INFO) << "Using provided cell_db";
+        cell_db_ = cell_db;
+      }
 }
 
 void CellDbIn::start_up() {
@@ -88,37 +92,39 @@ void CellDbIn::start_up() {
   };
 
   CellDbBase::start_up();
-  td::RocksDbOptions db_options;
-  if (!opts_->get_disable_rocksdb_stats()) {
-    statistics_ = td::RocksDb::create_statistics();
-    statistics_flush_at_ = td::Timestamp::in(60.0);
-    snapshot_statistics_ = std::make_shared<td::RocksDbSnapshotStatistics>();
-    db_options.snapshot_statistics = snapshot_statistics_;
-  }
-  db_options.statistics = statistics_;
-  if (opts_->get_celldb_cache_size()) {
-    db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
-    LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
-  }
-  db_options.use_direct_reads = opts_->get_celldb_direct_io();
+  if (cell_db_ == NULL){
+      td::RocksDbOptions db_options;
+      if (!opts_->get_disable_rocksdb_stats()) {
+        statistics_ = td::RocksDb::create_statistics();
+        statistics_flush_at_ = td::Timestamp::in(60.0);
+        snapshot_statistics_ = std::make_shared<td::RocksDbSnapshotStatistics>();
+        db_options.snapshot_statistics = snapshot_statistics_;
+      }
+      db_options.statistics = statistics_;
+      if (opts_->get_celldb_cache_size()) {
+        db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
+        LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
+      }
+      db_options.use_direct_reads = opts_->get_celldb_direct_io();
 
-  if (opts_->get_celldb_in_memory()) {
-    td::RocksDbOptions read_db_options;
-    read_db_options.use_direct_reads = true;
-    read_db_options.no_block_cache = true;
-    read_db_options.block_cache = {};
-    LOG(WARNING) << "Loading all cells in memory (because of --celldb-in-memory)";
-    td::Timer timer;
-    auto read_cell_db =
-        std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(read_db_options)).move_as_ok());
-    boc_ = vm::DynamicBagOfCellsDb::create_in_memory(read_cell_db.get(), {});
-    in_memory_load_time_ = timer.elapsed();
-    td::actor::send_closure(parent_, &CellDb::set_in_memory_boc, boc_);
+      if (opts_->get_celldb_in_memory()) {
+        td::RocksDbOptions read_db_options;
+        read_db_options.use_direct_reads = true;
+        read_db_options.no_block_cache = true;
+        read_db_options.block_cache = {};
+        LOG(WARNING) << "Loading all cells in memory (because of --celldb-in-memory)";
+        td::Timer timer;
+        auto read_cell_db =
+            std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(read_db_options)).move_as_ok());
+        boc_ = vm::DynamicBagOfCellsDb::create_in_memory(read_cell_db.get(), {});
+        in_memory_load_time_ = timer.elapsed();
+        td::actor::send_closure(parent_, &CellDb::set_in_memory_boc, boc_);
+      }
+
+      LOG(INFO) << "CellDbIn using a new rocksdb instance";
+      cell_db_ = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
   }
 
-  auto rocks_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
-  rocks_db_ = rocks_db->raw_db();
-  cell_db_ = std::move(rocks_db);
   if (!opts_->get_celldb_in_memory()) {
     boc_ = vm::DynamicBagOfCellsDb::create();
     boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
@@ -617,10 +623,11 @@ void CellDb::update_stats(td::Result<std::vector<std::pair<std::string, std::str
 }
 
 void CellDb::alarm() {
-  send_closure(cell_db_, &CellDbIn::prepare_stats, td::promise_send_closure(actor_id(this), &CellDb::update_stats));
+  send_closure(cell_db_read_[0], &CellDbIn::prepare_stats, td::promise_send_closure(actor_id(this), &CellDb::update_stats));
 }
 
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise) {
+//<<<<<<< HEAD
   if (in_memory_boc_) {
     auto result = in_memory_boc_->load_root_thread_safe(hash.as_slice());
     if (result.is_ok()) {
@@ -629,11 +636,20 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
       LOG(ERROR) << "load_root_thread_safe failed - this is suspicious";
     }
   }
+//=======
+  int ranNum = GetDBRandomNum();
+  static int64_t ranCount = 0;
+  ranCount++;
+  if (ranCount % 1000 == 0) {
+    LOG(ERROR) << "CellDb mailbox: " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+    ranCount = 0;
+//>>>>>>> zjg/op-db-debug
+  }
   if (!started_) {
-    td::actor::send_closure(cell_db_, &CellDbIn::load_cell, hash, std::move(promise));
+      td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
   } else {
     auto P = td::PromiseCreator::lambda(
-        [cell_db_in = cell_db_.get(), hash, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
+        [cell_db_in = cell_db_read_[ranNum].get(), hash, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
           if (R.is_error()) {
             td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise));
           } else {
@@ -645,24 +661,27 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
 }
 
 void CellDb::store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise) {
-  td::actor::send_closure(cell_db_, &CellDbIn::store_cell, block_id, std::move(cell), std::move(promise));
+  td::actor::send_closure(cell_db_read_[0], &CellDbIn::store_cell, block_id, std::move(cell), std::move(promise));
 }
 
 void CellDb::get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) {
-  td::actor::send_closure(cell_db_, &CellDbIn::get_cell_db_reader, std::move(promise));
+  td::actor::send_closure(cell_db_read_[0], &CellDbIn::get_cell_db_reader, std::move(promise));
 }
 
 void CellDb::get_last_deleted_mc_state(td::Promise<BlockSeqno> promise) {
-  td::actor::send_closure(cell_db_, &CellDbIn::get_last_deleted_mc_state, std::move(promise));
+  td::actor::send_closure(cell_db_read_[0], &CellDbIn::get_last_deleted_mc_state, std::move(promise));
 }
 
 void CellDb::start_up() {
   CellDbBase::start_up();
   boc_ = vm::DynamicBagOfCellsDb::create();
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
-  cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_);
+
+  for (int i = 0; i < THREAD_COUNTS; i++) {
+    cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
+  }
   on_load_callback_ = [actor = std::make_shared<td::actor::ActorOwn<CellDbIn::MigrationProxy>>(
-                           td::actor::create_actor<CellDbIn::MigrationProxy>("celldbmigration", cell_db_.get())),
+                           td::actor::create_actor<CellDbIn::MigrationProxy>("celldbmigration", cell_db_read_[0].get())),
                        compress_depth = opts_->get_celldb_compress_depth()](const vm::CellLoader::LoadResult& res) {
     if (res.cell_.is_null()) {
       return;
