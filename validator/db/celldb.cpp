@@ -450,7 +450,6 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
   ranCount++;
   if (ranCount % 1000 == 0) {
     LOG(ERROR) << "CellDb mailbox: " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
-    // LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size();
     ranCount = 0;
   }
   if (!started_) {
@@ -486,7 +485,6 @@ void CellDb::start_up() {
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
   cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
 
-  // cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
   for (int i = 0; i < THREAD_COUNTS; i++) {
     cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
   }
