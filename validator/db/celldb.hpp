@@ -181,7 +181,6 @@ class CellDb : public CellDbBase {
   std::string path_;
   td::Ref<ValidatorManagerOptions> opts_;
 
-  td::actor::ActorOwn<CellDbIn> cell_db_;
   td::actor::ActorOwn<CellDbIn> cell_db_read_[THREAD_COUNTS];
   std::shared_ptr<vm::KeyValue> rocks_db_;
 

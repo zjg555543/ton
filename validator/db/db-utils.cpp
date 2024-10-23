@@ -54,6 +54,9 @@ void PercentileStats::clear() {
 }
 
 int GetDBRandomNum(){
+    if (THREAD_COUNTS <= 1) {
+        return 0;
+    }
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distr(0, THREAD_COUNTS -1);

@@ -30,7 +30,7 @@ class PercentileStats {
   std::multiset<double> values_;
 };
 
-const int THREAD_COUNTS = 10;
+const int THREAD_COUNTS = 1;
 int GetDBRandomNum();
 
 

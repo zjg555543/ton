@@ -88,20 +88,20 @@ void CellDbIn::start_up() {
   };
 
   CellDbBase::start_up();
-  td::RocksDbOptions db_options;
-  if (!opts_->get_disable_rocksdb_stats()) {
-    statistics_ = td::RocksDb::create_statistics();
-    statistics_flush_at_ = td::Timestamp::in(60.0);
-    snapshot_statistics_ = std::make_shared<td::RocksDbSnapshotStatistics>();
-    db_options.snapshot_statistics = snapshot_statistics_;
-  }
-  db_options.statistics = statistics_;
-  if (opts_->get_celldb_cache_size()) {
-    db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
-    LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
-  }
-  db_options.use_direct_reads = opts_->get_celldb_direct_io();
   if (cell_db_ == NULL){
+      td::RocksDbOptions db_options;
+      if (!opts_->get_disable_rocksdb_stats()) {
+        statistics_ = td::RocksDb::create_statistics();
+        statistics_flush_at_ = td::Timestamp::in(60.0);
+        snapshot_statistics_ = std::make_shared<td::RocksDbSnapshotStatistics>();
+        db_options.snapshot_statistics = snapshot_statistics_;
+      }
+      db_options.statistics = statistics_;
+      if (opts_->get_celldb_cache_size()) {
+        db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
+        LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
+      }
+      db_options.use_direct_reads = opts_->get_celldb_direct_io();
       LOG(INFO) << "CellDbIn using a new rocksdb instance";
       cell_db_ = std::make_shared<td::RocksDb>(td::RocksDb::open(path_, std::move(db_options)).move_as_ok());
   }
@@ -453,7 +453,7 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
     ranCount = 0;
   }
   if (!started_) {
-    td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
+      td::actor::send_closure(cell_db_read_[ranNum], &CellDbIn::load_cell, hash, std::move(promise));
   } else {
     auto P = td::PromiseCreator::lambda(
         [cell_db_in = cell_db_read_[ranNum].get(), hash, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
@@ -468,28 +468,27 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
 }
 
 void CellDb::store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise) {
-  td::actor::send_closure(cell_db_, &CellDbIn::store_cell, block_id, std::move(cell), std::move(promise));
+  td::actor::send_closure(cell_db_read_[0], &CellDbIn::store_cell, block_id, std::move(cell), std::move(promise));
 }
 
 void CellDb::get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) {
-  td::actor::send_closure(cell_db_, &CellDbIn::get_cell_db_reader, std::move(promise));
+  td::actor::send_closure(cell_db_read_[0], &CellDbIn::get_cell_db_reader, std::move(promise));
 }
 
 void CellDb::get_last_deleted_mc_state(td::Promise<BlockSeqno> promise) {
-  td::actor::send_closure(cell_db_, &CellDbIn::get_last_deleted_mc_state, std::move(promise));
+  td::actor::send_closure(cell_db_read_[0], &CellDbIn::get_last_deleted_mc_state, std::move(promise));
 }
 
 void CellDb::start_up() {
   CellDbBase::start_up();
   boc_ = vm::DynamicBagOfCellsDb::create();
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
-  cell_db_ = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
 
   for (int i = 0; i < THREAD_COUNTS; i++) {
     cell_db_read_[i] = td::actor::create_actor<CellDbIn>("celldbin", root_db_, actor_id(this), path_, opts_, rocks_db_);
   }
   on_load_callback_ = [actor = std::make_shared<td::actor::ActorOwn<CellDbIn::MigrationProxy>>(
-                           td::actor::create_actor<CellDbIn::MigrationProxy>("celldbmigration", cell_db_.get())),
+                           td::actor::create_actor<CellDbIn::MigrationProxy>("celldbmigration", cell_db_read_[0].get())),
                        compress_depth = opts_->get_celldb_compress_depth()](const vm::CellLoader::LoadResult& res) {
     if (res.cell_.is_null()) {
       return;

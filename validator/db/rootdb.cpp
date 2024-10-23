@@ -242,7 +242,7 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
         td::actor::send_closure(b, &ArchiveManager::update_handle, std::move(handle), std::move(P));
       }
     });
-    td::actor::send_closure(cell_db_, &CellDb::store_cell, handle->id(), state->root_cell(), std::move(P));
+    td::actor::send_closure(cell_db_read_[0], &CellDb::store_cell, handle->id(), state->root_cell(), std::move(P));
   } else {
     get_block_state(handle, std::move(promise));
   }
@@ -272,7 +272,7 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
       LOG(ERROR) << "RootDb mailbox: " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
       ranCount = 0;
     }
-
+    
     td::actor::send_closure(cell_db_read_[ranNum], &CellDb::load_cell, handle->state(), std::move(P));
   } else {
     promise.set_error(td::Status::Error(ErrorCode::notready, "state not in db"));
@@ -280,11 +280,11 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
 }
 
 void RootDb::get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) {
-  td::actor::send_closure(cell_db_, &CellDb::get_cell_db_reader, std::move(promise));
+  td::actor::send_closure(cell_db_read_[0], &CellDb::get_cell_db_reader, std::move(promise));
 }
 
 void RootDb::get_last_deleted_mc_state(td::Promise<BlockSeqno> promise) {
-  td::actor::send_closure(cell_db_, &CellDb::get_last_deleted_mc_state, std::move(promise));
+  td::actor::send_closure(cell_db_read_[0], &CellDb::get_last_deleted_mc_state, std::move(promise));
 }
 
 void RootDb::store_persistent_state_file(BlockIdExt block_id, BlockIdExt masterchain_block_id, td::BufferSlice state,
@@ -429,8 +429,6 @@ void RootDb::start_up() {
   db_options.use_direct_reads = opts_->get_celldb_direct_io();
   auto path = root_path_ + "/celldb/";
   auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path, std::move(db_options)).move_as_ok());
-
-  cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
   for (int i = 0; i < THREAD_COUNTS; i++){
     cell_db_read_[i] = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
   }
