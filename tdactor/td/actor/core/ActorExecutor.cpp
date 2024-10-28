@@ -19,6 +19,7 @@
 #include "td/actor/core/ActorExecutor.h"
 
 #include "td/utils/ScopeGuard.h"
+#include "td/utils/logging.h"
 
 namespace td {
 namespace actor {
@@ -76,7 +77,7 @@ void ActorExecutor::send(ActorSignals signals) {
 }
 
 void ActorExecutor::start() noexcept {
-  //LOG(ERROR) << "START " << actor_info_.get_name() << " " << tag("from_queue", options_.from_queue);
+  LOG(DEBUG) << "yus START " << actor_info_.get_name() << " " << tag("from_queue", options_.from_queue);
   if (is_closed()) {
     return;
   }
@@ -116,24 +117,23 @@ void ActorExecutor::start() noexcept {
 
   while (flush_one_signal(signals)) {
     if (actor_execute_context_.has_immediate_flags()) {
+      LOG(DEBUG) << "yus " << actor_info_.get_name() << " has_immediate_flags return ";
       return;
     }
   }
   while (flush_one_message()) {
     if (actor_execute_context_.has_immediate_flags()) {
+      LOG(DEBUG) << "yus " << actor_info_.get_name() << " has_immediate_flags return " << &actor_execute_context_;
       return;
     }
   }
 }
 
 void ActorExecutor::finish() noexcept {
-  //LOG(ERROR) << "FINISH " << actor_info_.get_name() << " " << tag("own_lock", actor_locker_.own_lock());
   if (!actor_locker_.own_lock()) {
     if (!pending_signals_.empty() && actor_locker_.add_signals(pending_signals_)) {
       flags_ = actor_locker_.flags();
-      //LOG(ERROR) << "Own after finish " << actor_info_.get_name() << " " << format::as_binary(flags().raw());
     } else {
-      //LOG(ERROR) << "DO FINISH " << actor_info_.get_name() << " " << flags();
       return;
     }
   } else {
@@ -155,10 +155,8 @@ void ActorExecutor::finish() noexcept {
       signals.clear_signal(ActorSignals::Pop);
       flags().set_signals(signals);
       flags().set_in_queue(false);
-      //LOG(ERROR) << "clear in_queue " << format::as_binary(flags().raw());
     }
 
-    //LOG(ERROR) << tag("in_queue", flags().is_in_queue()) << tag("has_signals", flags().has_signals());
     if (flags_.is_closed()) {
       // Writing to mailbox and closing actor may happen concurrently
       // We must ensure that all messages in mailbox will be deleted
@@ -177,13 +175,13 @@ void ActorExecutor::finish() noexcept {
     }
     if (actor_locker_.try_unlock(flags())) {
       if (add_to_queue) {
+        LOG(DEBUG) << "yus " << actor_info_ptr->get_name() << " finishing ";
         dispatcher_.add_to_queue(std::move(actor_info_ptr), flags().get_scheduler_id(), !flags().is_shared());
       }
       break;
     }
     flags_ = actor_locker_.flags();
   }
-  //LOG(ERROR) << "DO FINISH " << actor_info_.get_name() << " " << flags();
 }
 
 bool ActorExecutor::flush_one_signal(ActorSignals &signals) {
@@ -233,8 +231,10 @@ bool ActorExecutor::flush_one_signal(ActorSignals &signals) {
 
 bool ActorExecutor::flush_one_message() {
   auto message = actor_info_.mailbox().reader().read();
-  //LOG(ERROR) << "flush one message " << !!message << " " << actor_info_.get_name();
+  // LOG(ERROR) << "flush one message " << !!message << " " << actor_info_.get_name();
+  LOG(DEBUG) << "yus " << "flush one message " << " name " << actor_info_.get_name();
   if (!message) {
+    LOG(DEBUG) << "yus " << " name " << actor_info_.get_name() << " no message return";
     pending_signals_.clear_signal(ActorSignals::Message);
     return false;
   }

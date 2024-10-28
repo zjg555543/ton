@@ -98,15 +98,19 @@ td::Result<std::unique_ptr<ConfigInfo>> ConfigInfo::extract_config(std::shared_p
     return td::Status::Error(-668, "Masterchain state BoC is invalid");
   }
   TRY_RESULT(root, static_boc->get_root_cell(0));
-  return extract_config(std::move(root), mode);
+  return extract_config(std::move(root), mode, 0);
 }
 
-td::Result<std::unique_ptr<ConfigInfo>> ConfigInfo::extract_config(Ref<vm::Cell> mc_state_root, int mode) {
+td::Result<std::unique_ptr<ConfigInfo>> ConfigInfo::extract_config(Ref<vm::Cell> mc_state_root, int mode, std::uint64_t counter_) {
+  // LOG(INFO) << "extract_config, counter" << counter_  << ", 1";
   if (mc_state_root.is_null()) {
     return td::Status::Error("configuration state root cell is null");
   }
+  // LOG(INFO) << "extract_config, counter" << counter_  << ", 2";
   auto config = std::unique_ptr<ConfigInfo>{new ConfigInfo(std::move(mc_state_root), mode)};
-  TRY_STATUS(config->unpack_wrapped());
+  // LOG(INFO) << "extract_config, counter" << counter_  << ", 3";
+  TRY_STATUS(config->unpack_wrapped(counter_));
+  // LOG(INFO) << "extract_config, counter" << counter_  << ", 4";
   return std::move(config);
 }
 
@@ -115,9 +119,9 @@ ConfigInfo::ConfigInfo(Ref<vm::Cell> mc_state_root, int _mode) : Config(_mode), 
   block_id.file_hash.set_zero();
 }
 
-td::Status ConfigInfo::unpack_wrapped() {
+td::Status ConfigInfo::unpack_wrapped(std::uint64_t counter_) {
   try {
-    return unpack();
+    return unpack(counter_);
   } catch (vm::VmError& err) {
     return td::Status::Error(PSLICE() << "error unpacking block state header and configuration: " << err.get_msg());
   } catch (vm::VmVirtError& err) {
@@ -126,101 +130,126 @@ td::Status ConfigInfo::unpack_wrapped() {
   }
 }
 
-td::Status ConfigInfo::unpack() {
+td::Status ConfigInfo::unpack(std::uint64_t counter_) {
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 1";
   gen::ShardStateUnsplit::Record root_info;
   if (!tlb::unpack_cell(state_root, root_info) || !root_info.global_id) {
     return td::Status::Error("configuration state root cannot be deserialized");
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 2";
   global_id_ = root_info.global_id;
   block::ShardId shard_id{root_info.shard_id};
   block_id.id = ton::BlockId{ton::ShardIdFull(shard_id), (unsigned)root_info.seq_no};
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 3";
   block_id.root_hash.set_zero();
   block_id.file_hash.set_zero();
   vert_seqno = root_info.vert_seq_no;
   utime = root_info.gen_utime;
   lt = root_info.gen_lt;
   min_ref_mc_seqno_ = root_info.min_ref_mc_seqno;
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 4";
   if (!root_info.custom->size_refs()) {
     return td::Status::Error("state does not have a `custom` field with masterchain configuration");
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 5";
   if (mode & needLibraries) {
     lib_root_ = root_info.r1.libraries->prefetch_ref();
     libraries_dict_ = std::make_unique<vm::Dictionary>(lib_root_, 256);
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 6";
   if (mode & needAccountsRoot) {
     accounts_root = vm::load_cell_slice_ref(root_info.accounts);
     LOG(DEBUG) << "requested accounts dictionary";
     accounts_dict = std::make_unique<vm::AugmentedDictionary>(accounts_root, 256, block::tlb::aug_ShardAccounts);
     LOG(DEBUG) << "accounts dictionary created";
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 7";
   state_extra_root_ = root_info.custom->prefetch_ref();
   if (!is_masterchain()) {
     if (mode & (needShardHashes | needValidatorSet | needSpecialSmc | needPrevBlocks | needWorkchainInfo)) {
       return td::Status::Error("cannot extract masterchain-specific configuration data from a non-masterchain state");
     }
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 8";
     cleanup();
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 9";
     return td::Status::OK();
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 10";
   gen::McStateExtra::Record extra_info;
   if (!tlb::unpack_cell(state_extra_root_, extra_info)) {
     vm::load_cell_slice(state_extra_root_).print_rec(std::cerr);
     block::gen::t_McStateExtra.print_ref(std::cerr, state_extra_root_);
     return td::Status::Error("state extra information is invalid");
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 11";
   gen::ValidatorInfo::Record validator_info;
   if (!tlb::csr_unpack(extra_info.r1.validator_info, validator_info)) {
     return td::Status::Error("validator_info in state extra information is invalid");
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 12";
   cc_seqno_ = validator_info.catchain_seqno;
   nx_cc_updated = validator_info.nx_cc_updated;
   if ((mode & needShardHashes) && !ShardConfig::unpack(extra_info.shard_hashes)) {
     return td::Status::Error("cannot unpack Shard configuration");
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 13";
   is_key_state_ = extra_info.r1.after_key_block;
   if (extra_info.r1.last_key_block->size() > 1) {
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 14";
     auto& cs = extra_info.r1.last_key_block.write();
     block::gen::ExtBlkRef::Record ext_ref;
     if (!(cs.advance(1) && tlb::unpack_exact(cs, ext_ref))) {
       return td::Status::Error("cannot unpack last_key_block from masterchain state");
     }
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 15";
     last_key_block_.id = ton::BlockId{ton::masterchainId, ton::shardIdAll, ext_ref.seq_no};
     last_key_block_.root_hash = ext_ref.root_hash;
     last_key_block_.file_hash = ext_ref.file_hash;
     last_key_block_lt_ = ext_ref.end_lt;
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16";
   } else {
     last_key_block_.invalidate();
     last_key_block_.id.seqno = 0;
     last_key_block_lt_ = 0;
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 17";
   }
   // unpack configuration
-  TRY_STATUS(Config::unpack_wrapped(std::move(extra_info.config)));
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1";
+  TRY_STATUS(Config::unpack_wrapped(std::move(extra_info.config), counter_));
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-2";
   // unpack previous masterchain block collection
   std::unique_ptr<vm::AugmentedDictionary> prev_blocks_dict =
       std::make_unique<vm::AugmentedDictionary>(extra_info.r1.prev_blocks, 32, block::tlb::aug_OldMcBlocksInfo);
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 18";
   if (block_id.id.seqno) {
     block::gen::ExtBlkRef::Record extref = {};
     auto ref = prev_blocks_dict->lookup(td::BitArray<32>::zero());
     if (!(ref.not_null() && ref.write().advance(1) && tlb::csr_unpack(ref, extref) && !extref.seq_no)) {
       return td::Status::Error("OldMcBlocks in masterchain state does not contain a valid zero state reference");
     }
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 19";
     zerostate_id_.root_hash = extref.root_hash;
     zerostate_id_.file_hash = extref.file_hash;
   } else {
     zerostate_id_.root_hash.set_zero();
     zerostate_id_.file_hash.set_zero();
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 20";
   zerostate_id_.workchain = ton::masterchainId;
   if (mode & needPrevBlocks) {
     prev_blocks_dict_ = std::move(prev_blocks_dict);
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 21";
   // ...
   cleanup();
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 22";
   return td::Status::OK();
 }
 
-td::Status Config::unpack_wrapped(Ref<vm::CellSlice> config_csr) {
+td::Status Config::unpack_wrapped(Ref<vm::CellSlice> config_csr, std::uint64_t counter_) {
   try {
-    return unpack(std::move(config_csr));
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-1";
+    return unpack(std::move(config_csr), counter_);
   } catch (vm::VmError err) {
     return td::Status::Error(PSLICE() << "error unpacking masterchain configuration: " << err.get_msg());
   }
@@ -234,27 +263,39 @@ td::Status Config::unpack_wrapped() {
   }
 }
 
-td::Status Config::unpack(Ref<vm::CellSlice> config_cs) {
+td::Status Config::unpack(Ref<vm::CellSlice> config_cs, std::uint64_t counter_) {
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-2";
   gen::ConfigParams::Record config_params;
   if (!tlb::csr_unpack(std::move(config_cs), config_params)) {
     return td::Status::Error("cannot unpack ConfigParams");
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-3";
   config_addr = config_params.config_addr;
   config_root = std::move(config_params.config);
-  return unpack();
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-4";
+  return unpack(counter_);
 }
 
-td::Status Config::unpack() {
+td::Status Config::unpack(std::uint64_t counter_) {
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5";
   if (config_root.is_null()) {
     return td::Status::Error("configuration root not set");
   }
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-1";
   config_dict = std::make_unique<vm::Dictionary>(config_root, 32);
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-2";
   if (mode & needValidatorSet) {
-    auto vset_res = unpack_validator_set(get_config_param(35, 34));
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-3";
+    auto c = get_config_param(35, 34);
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-3-1";
+    auto vset_res = unpack_validator_set(c, counter_);
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-4";
     if (vset_res.is_error()) {
       return vset_res.move_as_error();
     }
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-5-5";
     cur_validators_ = vset_res.move_as_ok();
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-6";
   }
   if (mode & needSpecialSmc) {
     LOG(DEBUG) << "needSpecialSmc flag set";
@@ -265,17 +306,21 @@ td::Status Config::unpack() {
       special_smc_dict = std::make_unique<vm::Dictionary>(vm::load_cell_slice_ref(std::move(param)), 256);
       LOG(DEBUG) << "smc dictionary created";
     }
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-7";
   }
   if (mode & needWorkchainInfo) {
     TRY_RESULT(pair, unpack_workchain_list_ext(get_config_param(12)));
     workchains_ = std::move(pair.first);
     workchains_dict_ = std::move(pair.second);
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-8";
   }
   if (mode & needCapabilities) {
+    // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-10";
     auto cell = get_config_param(8);
     if (cell.is_null()) {
       version_ = 0;
       capabilities_ = 0;
+      //  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-11";
     } else {
       block::gen::GlobalVersion::Record gv;
       if (!tlb::unpack_cell(std::move(cell), gv)) {
@@ -285,22 +330,24 @@ td::Status Config::unpack() {
       }
       version_ = gv.version;
       capabilities_ = gv.capabilities;
+      //  LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-12";
     }
   }
   // ...
+  // LOG(INFO) << "unpack, counter" << counter_  << ", 16-1-13";
   return td::Status::OK();
 }
 
 td::Status Config::visit_validator_params() const {
   {
     // current validator set
-    TRY_RESULT(vset, unpack_validator_set(get_config_param(34)));
+    TRY_RESULT(vset, unpack_validator_set(get_config_param(34), 0));
   }
   for (int i = 32; i < 38; i++) {
     // prev/current/next persistent and temporary validator sets
     auto vs = get_config_param(i);
     if (vs.not_null()) {
-      TRY_RESULT(vset, unpack_validator_set(std::move(vs)));
+      TRY_RESULT(vset, unpack_validator_set(std::move(vs), 0));
     }
   }
   get_catchain_validators_config();
@@ -483,13 +530,16 @@ td::Result<WorkchainSet> Config::unpack_workchain_list(Ref<vm::Cell> root) {
   return std::move(pair.first);
 }
 
-td::Result<std::unique_ptr<ValidatorSet>> Config::unpack_validator_set(Ref<vm::Cell> vset_root) {
+td::Result<std::unique_ptr<ValidatorSet>> Config::unpack_validator_set(Ref<vm::Cell> vset_root, std::uint64_t counter_) {
+  // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 1";
   if (vset_root.is_null()) {
     return td::Status::Error("validator set is absent");
   }
+  // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 2";
   gen::ValidatorSet::Record_validators_ext rec;
   Ref<vm::Cell> dict_root;
   if (!tlb::unpack_cell(vset_root, rec)) {
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 3";
     gen::ValidatorSet::Record_validators rec0;
     if (!tlb::unpack_cell(std::move(vset_root), rec0)) {
       return td::Status::Error("validator set is invalid");
@@ -500,27 +550,34 @@ td::Result<std::unique_ptr<ValidatorSet>> Config::unpack_validator_set(Ref<vm::C
     rec.main = rec0.main;
     dict_root = vm::Dictionary::construct_root_from(*rec0.list);
     rec.total_weight = 0;
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 4";
   } else if (rec.total_weight) {
     dict_root = rec.list->prefetch_ref();
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 5";
   } else {
     return td::Status::Error("validator set cannot have zero total weight");
   }
   vm::Dictionary dict{std::move(dict_root), 16};
   td::BitArray<16> key_buffer;
   auto last = dict.get_minmax_key(key_buffer.bits(), 16, true);
+  // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 6";
   if (last.is_null() || (int)key_buffer.to_ulong() != rec.total - 1) {
     return td::Status::Error(
         "maximal index in a validator set dictionary must be one less than the total number of validators");
   }
+  // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7" << " ,total=" << rec.total;
   auto ptr = std::make_unique<ValidatorSet>(rec.utime_since, rec.utime_until, rec.total, rec.main);
   for (int i = 0; i < rec.total; i++) {
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-1";
     key_buffer.store_ulong(i);
     auto descr_cs = dict.lookup(key_buffer.bits(), 16);
     if (descr_cs.is_null()) {
       return td::Status::Error("indices in a validator set dictionary must be integers 0..total-1");
     }
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-2";
     gen::ValidatorDescr::Record_validator_addr descr;
     if (!tlb::csr_unpack(descr_cs, descr)) {
+      // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-3";
       descr.adnl_addr.set_zero();
       if (!(gen::t_ValidatorDescr.unpack_validator(descr_cs.write(), descr.public_key, descr.weight) &&
             descr_cs->empty_ext())) {
@@ -528,23 +585,29 @@ td::Result<std::unique_ptr<ValidatorSet>> Config::unpack_validator_set(Ref<vm::C
                                           << " has an invalid ValidatorDescr record in the validator set dictionary");
       }
     }
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-4";
     gen::SigPubKey::Record sig_pubkey;
     if (!tlb::csr_unpack(std::move(descr.public_key), sig_pubkey)) {
       return td::Status::Error(PSLICE() << "validator #" << i
                                         << " has no public key or its public key is in unsupported format");
     }
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-5";
     if (!descr.weight) {
       return td::Status::Error(PSLICE() << "validator #" << i << " has zero weight");
     }
     if (descr.weight > ~(ptr->total_weight)) {
       return td::Status::Error("total weight of all validators in validator set exceeds 2^64");
     }
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-6";
     ptr->list.emplace_back(sig_pubkey.pubkey, descr.weight, ptr->total_weight, descr.adnl_addr);
     ptr->total_weight += descr.weight;
+    // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 7-7";
   }
+  // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 8";
   if (rec.total_weight && rec.total_weight != ptr->total_weight) {
     return td::Status::Error("validator set declares incorrect total weight");
   }
+  // LOG(INFO) << "unpack_validator_set, counter" << counter_  << ", 9";
   return std::move(ptr);
 }
 
@@ -1922,7 +1985,7 @@ std::vector<ton::ValidatorDescr> Config::do_compute_validator_set(const block::C
 }
 
 std::vector<ton::ValidatorDescr> Config::compute_total_validator_set(int next) const {
-  auto res = unpack_validator_set(get_config_param(next < 0 ? 32 : (next ? 36 : 34)));
+  auto res = unpack_validator_set(get_config_param(next < 0 ? 32 : (next ? 36 : 34)), 0);
   if (res.is_error()) {
     return {};
   }

@@ -50,7 +50,7 @@ class ShardStateQ : virtual public ShardState {
   ShardStateQ(ShardStateQ&& other) = default;
 
  public:
-  td::Status init();
+  td::Status init(std::uint64_t counter_);
   ShardStateQ(const BlockIdExt& _id, td::BufferSlice _data);
   ShardStateQ(const BlockIdExt& _id, Ref<vm::Cell> _root, td::BufferSlice _data = {});
   virtual ~ShardStateQ() = default;
@@ -165,8 +165,8 @@ class MasterchainStateQ : public MasterchainState, public ShardStateQ {
   std::shared_ptr<block::ConfigInfo> config_;
   std::shared_ptr<block::ValidatorSet> cur_validators_, next_validators_;
   MasterchainStateQ(const MasterchainStateQ& other) = default;
-  td::Status mc_init();
-  td::Status mc_reinit();
+  td::Status mc_init(std::uint64_t counter_);
+  td::Status mc_reinit(std::uint64_t counter_);
   Ref<ValidatorSet> compute_validator_set(ShardIdFull shard, const block::ValidatorSet& vset, UnixTime time,
                                           CatchainSeqno cc_seqno) const;
 };

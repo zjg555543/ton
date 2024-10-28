@@ -22,6 +22,7 @@
 #include "files-async.hpp"
 #include "td/db/RocksDb.h"
 #include "common/delay.h"
+#include "validator/impl/scope_guard.h"
 
 namespace ton {
 
@@ -151,23 +152,58 @@ void ArchiveManager::add_temp_file_short(FileReference ref_id, td::BufferSlice d
 }
 
 void ArchiveManager::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise) {
+  LOG(INFO) << "ArchiveManager::get_handle. start time: "
+            << std::chrono::duration_cast<std::chrono::microseconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+                   .count()
+            << ". counter" << block_id.counter_;
+  td::PerfWarningTimer timer{"okxdebug-get_handle", 0.01};
+  LOG(INFO) << "okxdebug-get_handle";
+
   auto f = get_file_desc_by_seqno(block_id.shard_full(), block_id.seqno(), false);
   if (f) {
+    LOG(INFO) << "ArchiveManager::get_handle: f is valid"
+              << ". counter" << block_id.counter_;
     auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), block_id, idx = get_max_temp_file_desc_idx(),
                                          promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
+      LOG(INFO) << "ArchiveManager::get_handle. P lambda. start time: "
+                << std::chrono::duration_cast<std::chrono::microseconds>(
+                       std::chrono::steady_clock::now().time_since_epoch())
+                       .count()
+                << ". counter" << block_id.counter_;
       if (R.is_ok()) {
+        LOG(INFO) << "ArchiveManager::get_handle: R is valid"
+                  << ". counter" << block_id.counter_;
         promise.set_value(R.move_as_ok());
       } else {
+        LOG(INFO) << "ArchiveManager::get_handle: R is not valid"
+                  << ". counter" << block_id.counter_;
         td::actor::send_closure(SelfId, &ArchiveManager::get_handle_cont, block_id, idx, std::move(promise));
       }
     });
     td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_handle, block_id, std::move(P));
   } else {
+    LOG(INFO) << "ArchiveManager::get_handle: f is not valid"
+              << ". counter" << block_id.counter_;
     get_handle_cont(block_id, get_max_temp_file_desc_idx(), std::move(promise));
   }
 }
 
 void ArchiveManager::get_handle_cont(BlockIdExt block_id, PackageId idx, td::Promise<BlockHandle> promise) {
+  LOG(INFO) << "ArchiveManager::get_handle_cont. start time: "
+            << std::chrono::duration_cast<std::chrono::microseconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+                   .count()
+            << ". counter" << block_id.counter_;
+  SCOPE_EXIT(([start = std::chrono::steady_clock::now(), counter = block_id.counter_]() {
+    const auto end{std::chrono::steady_clock::now()};
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    LOG(INFO) << "ArchiveManager::get_handle_cont cost" << elapsed << "μs"
+              << ". counter" << counter;
+  }));
+  td::PerfWarningTimer timer{"okxdebug-get_handle_cont", 0.01};
+  LOG(INFO) << "okxdebug-get_handle_cont";
+
   if (idx.is_empty()) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "block handle not in db"));
     return;
@@ -179,6 +215,11 @@ void ArchiveManager::get_handle_cont(BlockIdExt block_id, PackageId idx, td::Pro
   }
   auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), block_id, idx = get_prev_temp_file_desc_idx(idx),
                                        promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
+    LOG(INFO) << "ArchiveManager::get_handle_cont. P lambda. start time: "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::steady_clock::now().time_since_epoch())
+                     .count()
+              << ". counter" << block_id.counter_ << " . R.is_ok:" << R.is_ok();
     if (R.is_ok()) {
       td::actor::send_closure(SelfId, &ArchiveManager::get_handle_finish, R.move_as_ok(), std::move(promise));
     } else {
@@ -189,12 +230,39 @@ void ArchiveManager::get_handle_cont(BlockIdExt block_id, PackageId idx, td::Pro
 }
 
 void ArchiveManager::get_handle_finish(BlockHandle handle, td::Promise<BlockHandle> promise) {
+  const auto counter = handle->id().counter_;
+  LOG(INFO) << "ArchiveManager::get_handle_finish. start time: "
+            << std::chrono::duration_cast<std::chrono::microseconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+                   .count()
+            << ". counter" << counter;
+  SCOPE_EXIT(([start = std::chrono::steady_clock::now(), counter]() {
+    const auto end{std::chrono::steady_clock::now()};
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    LOG(INFO) << "ArchiveManager::get_handle_finish cost" << elapsed << "μs"
+              << ". counter" << counter;
+  }));
+  td::PerfWarningTimer timer{"okxdebug-get_handle_cont", 0.01};
+  LOG(INFO) << "okxdebug-get_handle_cont";
+
   auto f = get_file_desc_by_seqno(handle->id().shard_full(), handle->id().seqno(), false);
   if (!f) {
     promise.set_value(std::move(handle));
     return;
   }
   auto P = td::PromiseCreator::lambda([handle, promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
+    const auto counter = handle->id().counter_;
+    LOG(INFO) << "ArchiveManager::get_handle_finish: P lambda. start time: "
+              << std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::steady_clock::now().time_since_epoch())
+                     .count()
+              << ". counter" << counter;
+    SCOPE_EXIT(([start = std::chrono::steady_clock::now(), counter]() {
+      const auto end{std::chrono::steady_clock::now()};
+      const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+      LOG(INFO) << "ArchiveManager::get_handle_finish: P lambda cost" << elapsed << "μs"
+                << ". counter" << counter;
+    }));
     if (R.is_ok()) {
       promise.set_value(R.move_as_ok());
     } else {
@@ -342,19 +410,19 @@ void ArchiveManager::add_zero_state(BlockIdExt block_id, td::BufferSlice data, t
 void ArchiveManager::add_persistent_state(BlockIdExt block_id, BlockIdExt masterchain_block_id, td::BufferSlice data,
                                           td::Promise<td::Unit> promise) {
   auto create_writer = [&](std::string path, td::Promise<std::string> P) {
-    td::actor::create_actor<db::WriteFile>("writefile", db_root_ + "/archive/tmp/",
-                                           std::move(path), std::move(data), std::move(P))
+    td::actor::create_actor<db::WriteFile>("writefile", db_root_ + "/archive/tmp/", std::move(path), std::move(data),
+                                           std::move(P))
         .release();
   };
   add_persistent_state_impl(block_id, masterchain_block_id, std::move(promise), std::move(create_writer));
 }
 
 void ArchiveManager::add_persistent_state_gen(BlockIdExt block_id, BlockIdExt masterchain_block_id,
-                                              std::function<td::Status(td::FileFd&)> write_state,
+                                              std::function<td::Status(td::FileFd &)> write_state,
                                               td::Promise<td::Unit> promise) {
   auto create_writer = [&](std::string path, td::Promise<std::string> P) {
-    td::actor::create_actor<db::WriteFile>("writefile", db_root_ + "/archive/tmp/",
-                                           std::move(path), std::move(write_state), std::move(P))
+    td::actor::create_actor<db::WriteFile>("writefile", db_root_ + "/archive/tmp/", std::move(path),
+                                           std::move(write_state), std::move(P))
         .release();
   };
   add_persistent_state_impl(block_id, masterchain_block_id, std::move(promise), std::move(create_writer));
@@ -624,8 +692,8 @@ void ArchiveManager::load_package(PackageId id) {
     }
   }
 
-  desc.file =
-      td::actor::create_actor<ArchiveSlice>("slice", id.id, id.key, id.temp, false, db_root_, archive_lru_.get(), statistics_);
+  desc.file = td::actor::create_actor<ArchiveSlice>("slice", id.id, id.key, id.temp, false, db_root_,
+                                                    archive_lru_.get(), statistics_);
 
   m.emplace(id, std::move(desc));
   update_permanent_slices();
@@ -659,8 +727,8 @@ const ArchiveManager::FileDescription *ArchiveManager::add_file_desc(ShardIdFull
   FileDescription new_desc{id, false};
   td::mkdir(db_root_ + id.path()).ensure();
   std::string prefix = PSTRING() << db_root_ << id.path() << id.name();
-  new_desc.file =
-      td::actor::create_actor<ArchiveSlice>("slice", id.id, id.key, id.temp, false, db_root_, archive_lru_.get(), statistics_);
+  new_desc.file = td::actor::create_actor<ArchiveSlice>("slice", id.id, id.key, id.temp, false, db_root_,
+                                                        archive_lru_.get(), statistics_);
   const FileDescription &desc = f.emplace(id, std::move(new_desc));
   if (!id.temp) {
     update_desc(f, desc, shard, seqno, ts, lt);
@@ -940,7 +1008,8 @@ void ArchiveManager::start_up() {
 void ArchiveManager::alarm() {
   alarm_timestamp() = td::Timestamp::in(60.0);
   auto stats = statistics_.to_string_and_reset();
-  auto to_file_r = td::FileFd::open(db_root_ + "/db_stats.txt", td::FileFd::Truncate | td::FileFd::Create | td::FileFd::Write, 0644);
+  auto to_file_r =
+      td::FileFd::open(db_root_ + "/db_stats.txt", td::FileFd::Truncate | td::FileFd::Create | td::FileFd::Write, 0644);
   if (to_file_r.is_error()) {
     LOG(ERROR) << "Failed to open db_stats.txt: " << to_file_r.move_as_error();
     return;
@@ -1034,7 +1103,7 @@ void ArchiveManager::persistent_state_gc(std::pair<BlockSeqno, FileHash> last) {
   }
   if (res != 0) {
     delay_action([key, SelfId = actor_id(
-                            this)]() { td::actor::send_closure(SelfId, &ArchiveManager::persistent_state_gc, key); },
+                           this)]() { td::actor::send_closure(SelfId, &ArchiveManager::persistent_state_gc, key); },
                  td::Timestamp::in(1.0));
     return;
   }
@@ -1051,7 +1120,7 @@ void ArchiveManager::persistent_state_gc(std::pair<BlockSeqno, FileHash> last) {
   }
   if (!allow_delete) {
     delay_action([key, SelfId = actor_id(
-                            this)]() { td::actor::send_closure(SelfId, &ArchiveManager::persistent_state_gc, key); },
+                           this)]() { td::actor::send_closure(SelfId, &ArchiveManager::persistent_state_gc, key); },
                  td::Timestamp::in(1.0));
     return;
   }
@@ -1082,9 +1151,9 @@ void ArchiveManager::got_gc_masterchain_handle(ConstBlockHandle handle, std::pai
     td::unlink(db_root_ + "/archive/states/" + F.filename_short()).ignore();
     perm_states_.erase(it);
   }
-  delay_action([key, SelfId = actor_id(
-                          this)]() { td::actor::send_closure(SelfId, &ArchiveManager::persistent_state_gc, key); },
-               td::Timestamp::in(1.0));
+  delay_action(
+      [key, SelfId = actor_id(this)]() { td::actor::send_closure(SelfId, &ArchiveManager::persistent_state_gc, key); },
+      td::Timestamp::in(1.0));
 }
 
 PackageId ArchiveManager::get_temp_package_id() const {

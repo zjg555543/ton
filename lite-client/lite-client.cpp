@@ -3520,7 +3520,7 @@ td::Status TestNode::ValidatorLoadInfo::unpack_vset() {
   }
   vset_hash = vset_root->get_hash().bits();
   TRY_RESULT_PREFIX_ASSIGN(
-      vset, block::Config::unpack_validator_set(vset_root),
+      vset, block::Config::unpack_validator_set(vset_root, 0),
       PSLICE() << "cannot unpack validator set from configuration parameter 34 of block " << blk_id.to_str() << " :");
   valid_since = vset->utime_since;
   vset_map = vset->compute_validator_map();

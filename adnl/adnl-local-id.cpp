@@ -85,8 +85,11 @@ void AdnlLocalId::deliver(AdnlNodeIdShort src, td::BufferSlice data) {
 void AdnlLocalId::deliver_query(AdnlNodeIdShort src, td::BufferSlice data, td::Promise<td::BufferSlice> promise) {
   auto s = std::move(data);
   for (auto &cb : cb_) {
+    int a = 0;
     auto f = cb.first;
     if (f.length() <= s.length() && s.as_slice().substr(0, f.length()) == f) {
+      LOG(INFO) << "process_query, 2 over" << ", a" << a;
+      a = a +1;
       cb.second->receive_query(src, short_id_, std::move(s), std::move(promise));
       return;
     }

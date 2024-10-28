@@ -148,7 +148,7 @@ void ValidateBroadcast::got_key_block_handle(ConstBlockHandle handle) {
         td::actor::send_closure(SelfId, &ValidateBroadcast::got_zero_state, td::Ref<MasterchainState>{R.move_as_ok()});
       }
     });
-    td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P));
+    td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P), 0);
   } else {
     if (!handle->inited_proof() && !handle->inited_proof_link()) {
       abort_query(td::Status::Error(ErrorCode::notready, "reference key block proof not received"));

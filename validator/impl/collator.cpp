@@ -682,7 +682,7 @@ bool Collator::unpack_last_mc_state() {
       block::ConfigInfo::needShardHashes | block::ConfigInfo::needLibraries | block::ConfigInfo::needValidatorSet |
           block::ConfigInfo::needWorkchainInfo | block::ConfigInfo::needCapabilities |
           block::ConfigInfo::needPrevBlocks |
-          (is_masterchain() ? block::ConfigInfo::needAccountsRoot | block::ConfigInfo::needSpecialSmc : 0));
+          (is_masterchain() ? block::ConfigInfo::needAccountsRoot | block::ConfigInfo::needSpecialSmc : 0), 0);
   if (res.is_error()) {
     td::Status err = res.move_as_error();
     LOG(ERROR) << "cannot extract configuration from most recent masterchain state: " << err.to_string();
@@ -4446,7 +4446,7 @@ bool Collator::create_mc_state_extra() {
   if (cur_vset_cell.is_null()) {
     cur_vset_cell = cfg_dict_new.lookup_ref(td::BitArray<32>{34});
   }
-  auto res = block::Config::unpack_validator_set(std::move(cur_vset_cell));
+  auto res = block::Config::unpack_validator_set(std::move(cur_vset_cell), 0);
   if (res.is_error()) {
     auto err = res.move_as_error();
     LOG(ERROR) << "cannot unpack current validator set: " << err.to_string();

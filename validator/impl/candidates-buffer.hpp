@@ -31,7 +31,7 @@ class CandidatesBuffer : public td::actor::Actor {
 
   void add_new_candidate(BlockIdExt id, PublicKey source, FileHash collated_data_file_hash);
   void get_block_data(BlockIdExt id, td::Promise<td::Ref<BlockData>> promise);
-  void get_block_state(BlockIdExt id, td::Promise<td::Ref<ShardState>> promise);
+  void get_block_state(BlockIdExt id, td::Promise<td::Ref<ShardState>> promise,  std::uint64_t counter_);
 
  private:
   td::actor::ActorId<ValidatorManager> manager_;

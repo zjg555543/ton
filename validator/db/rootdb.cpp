@@ -26,6 +26,8 @@
 #include "common/checksum.h"
 #include "validator/stats-merger.h"
 #include "td/actor/MultiPromise.h"
+#include <iostream>
+#include <random>
 
 namespace ton {
 
@@ -230,7 +232,7 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
         handle->set_state_root_hash(root_hash);
         handle->set_state_boc();
 
-        auto S = create_shard_state(handle->id(), R.move_as_ok());
+        auto S = create_shard_state(handle->id(), R.move_as_ok(), 0);
         S.ensure();
 
         auto P = td::PromiseCreator::lambda(
@@ -244,30 +246,51 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
     });
     td::actor::send_closure(cell_db_, &CellDb::store_cell, handle->id(), state->root_cell(), std::move(P));
   } else {
-    get_block_state(handle, std::move(promise));
+    get_block_state(handle, std::move(promise), 0);
   }
 }
 
-void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
+void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) {
+  LOG(INFO) << "get_block_state, counter" << counter_  << ", 1";
   if (handle->inited_state_boc()) {
+    LOG(INFO) << "get_block_state, counter" << counter_ << ", 2";
     if (handle->deleted_state_boc()) {
       promise.set_error(td::Status::Error(ErrorCode::error, "state already gc'd"));
       return;
     }
+    LOG(INFO) << "get_block_state, counter" << counter_  << ", 3";
     auto P =
-        td::PromiseCreator::lambda([handle, promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
+        td::PromiseCreator::lambda([handle, promise = std::move(promise), counter_](td::Result<td::Ref<vm::DataCell>> R) mutable {
           if (R.is_error()) {
             promise.set_error(R.move_as_error());
           } else {
-            auto S = create_shard_state(handle->id(), R.move_as_ok());
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 5";
+            auto S = create_shard_state(handle->id(), R.move_as_ok(), counter_);
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 5-1";
             S.ensure();
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 5-2";
             promise.set_value(S.move_as_ok());
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 5-3";
+            LOG(INFO) << "get_block_state, counter" << counter_  << ", 6";
           }
         });
-    td::actor::send_closure(cell_db_, &CellDb::load_cell, handle->state(), std::move(P));
+    LOG(INFO) << "get_block_state, counter" << counter_  << ", 4";
+
+    int ranNum = GetRandom();
+    static int64_t ranCount = 0;
+    ranCount++;
+    if (ranCount % 1000 == 0) {
+      LOG(ERROR) << "yus " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+      ranCount = 0;
+    }
+    
+    td::actor::send_closure(cell_db_read_[ranNum], &CellDb::load_cell, handle->state(), std::move(P), counter_);
+    LOG(INFO) << "get_block_state, counter" << counter_  << ", 4-1";
   } else {
+    LOG(INFO) << "get_block_state, counter" << counter_  << ", 7-0";
     promise.set_error(td::Status::Error(ErrorCode::notready, "state not in db"));
   }
+  LOG(INFO) << "get_block_state, counter" << counter_  << ", 7";
 }
 
 void RootDb::get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) {
@@ -332,6 +355,11 @@ void RootDb::store_block_handle(BlockHandle handle, td::Promise<td::Unit> promis
 }
 
 void RootDb::get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise) {
+  LOG(INFO) << "RootDb::get_block_handle. start time: "
+            << std::chrono::duration_cast<std::chrono::microseconds>(
+                   std::chrono::steady_clock::now().time_since_epoch())
+                   .count()
+            << ". counter" << id.counter_;
   td::actor::send_closure(archive_db_, &ArchiveManager::get_handle, id, std::move(promise));
 }
 
@@ -407,7 +435,26 @@ void RootDb::get_hardforks(td::Promise<std::vector<BlockIdExt>> promise) {
 }
 
 void RootDb::start_up() {
-  cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), root_path_ + "/celldb/", opts_);
+
+  td::RocksDbOptions db_options;
+  auto statistics_ = td::RocksDb::create_statistics();
+  if (!opts_->get_disable_rocksdb_stats()) {
+    db_options.snapshot_statistics = std::make_shared<td::RocksDbSnapshotStatistics>();
+  }
+  db_options.statistics = statistics_;
+  if (opts_->get_celldb_cache_size()) {
+    db_options.block_cache = td::RocksDb::create_cache(opts_->get_celldb_cache_size().value());
+    LOG(WARNING) << "Set CellDb block cache size to " << td::format::as_size(opts_->get_celldb_cache_size().value());
+  }
+  db_options.use_direct_reads = opts_->get_celldb_direct_io();
+  auto path = root_path_ + "/celldb/";
+  auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path, std::move(db_options)).move_as_ok());
+
+  cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
+  for (int i = 0; i < THREAD_COUNTS; i++){
+    cell_db_read_[i] = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
+  }
+
   state_db_ = td::actor::create_actor<StateDb>("statedb", actor_id(this), root_path_ + "/state/");
   static_files_db_ = td::actor::create_actor<StaticFilesDb>("staticfilesdb", actor_id(this), root_path_ + "/static/");
   archive_db_ = td::actor::create_actor<ArchiveManager>("archive", actor_id(this), root_path_, opts_);

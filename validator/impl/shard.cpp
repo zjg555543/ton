@@ -62,25 +62,35 @@ ShardStateQ::ShardStateQ(const BlockIdExt& _id, Ref<vm::Cell> _root, td::BufferS
 }
 
 td::Result<Ref<ShardStateQ>> ShardStateQ::fetch(const BlockIdExt& _id, td::BufferSlice _data, Ref<vm::Cell> _root) {
+  LOG(INFO) << "fetch, counter" << _id.counter_  << ", 1";
   if (_id.is_masterchain()) {
+    LOG(INFO) << "fetch, counter" << _id.counter_  << ", 2";
     auto res = MasterchainStateQ::fetch(_id, std::move(_data), std::move(_root));
     if (res.is_error()) {
+      LOG(INFO) << "fetch, counter" << _id.counter_  << ", 3";
       return res.move_as_error();
     } else {
+      LOG(INFO) << "fetch, counter" << _id.counter_  << ", 4";
       return Ref<ShardStateQ>{res.move_as_ok()};
     }
   }
+  LOG(INFO) << "fetch, counter" << _id.counter_  << ", 5";
   Ref<ShardStateQ> res{true, _id, std::move(_root), std::move(_data)};
-  td::Status err = res.unique_write().init();
+  LOG(INFO) << "fetch, counter" << _id.counter_  << ", 6";
+  td::Status err = res.unique_write().init(_id.counter_);
   if (err.is_error()) {
+    LOG(INFO) << "fetch, counter" << _id.counter_  << ", 7";
     return err;
   } else {
+    LOG(INFO) << "fetch, counter" << _id.counter_  << ", 8";
     return std::move(res);
   }
 }
 
-td::Status ShardStateQ::init() {
+td::Status ShardStateQ::init(std::uint64_t counter_) {
+  // LOG(INFO) << "init, counter" << counter_  << ", 1";
   if (root.is_null()) {
+    // LOG(INFO) << "init, counter" << counter_  << ", 2";
     if (data.empty()) {
       return td::Status::Error(
           -668, "cannot initialize shardchain state without either a root cell or a BufferSlice with serialized data");
@@ -88,50 +98,62 @@ td::Status ShardStateQ::init() {
 #if LAZY_STATE_DESERIALIZE
     vm::StaticBagOfCellsDbLazy::Options options;
     options.check_crc32c = true;
+    // LOG(INFO) << "init, counter" << counter_  << ", 3";
     auto res = vm::StaticBagOfCellsDbLazy::create(td::BufferSliceBlobView::create(data.clone()), options);
     if (res.is_error()) {
       return res.move_as_error();
     }
+    // LOG(INFO) << "init, counter" << counter_  << ", 4";
     auto boc = res.move_as_ok();
     auto rc = boc->get_root_count();
     if (rc.is_error()) {
       return rc.move_as_error();
     }
+    // LOG(INFO) << "init, counter" << counter_  << ", 5";
     if (rc.move_as_ok() != 1) {
       return td::Status::Error(-668, "shardchain state BoC is invalid");
     }
     auto res3 = boc->get_root_cell(0);
     bocs_.clear();
     bocs_.push_back(std::move(boc));
+    // LOG(INFO) << "init, counter" << counter_  << ", 6";
 #else
     auto res3 = vm::std_boc_deserialize(data.as_slice());
+    LOG(INFO) << "init, counter" << counter_  << ", 7";
 #endif
     if (res3.is_error()) {
       return res3.move_as_error();
     }
+    // LOG(INFO) << "init, counter" << counter_  << ", 8";
     root = res3.move_as_ok();
     if (root.is_null()) {
       return td::Status::Error(-668, "cannot extract root cell out of a shardchain state BoC");
     }
+    // LOG(INFO) << "init, counter" << counter_  << ", 9";
   }
+  // LOG(INFO) << "init, counter" << counter_  << ", 10";
   rhash = root->get_hash().bits();
   block::gen::ShardStateUnsplit::Record info;
   if (!tlb::unpack_cell(root, info)) {
     return td::Status::Error(-668,
                              "shardchain state for block "s + blkid.id.to_str() + " does not contain a valid header");
   }
+  // LOG(INFO) << "init, counter" << counter_  << ", 11";
   lt = info.gen_lt;
   utime = info.gen_utime;
   global_id_ = info.global_id;
   before_split_ = info.before_split;
   block::ShardId id{info.shard_id};
   ton::BlockId hdr_id{ton::ShardIdFull(id), info.seq_no};
+  // LOG(INFO) << "init, counter" << counter_  << ", 12";
   if (!id.is_valid() || get_shard() != ton::ShardIdFull(id) || get_seqno() != info.seq_no) {
     return td::Status::Error(-668, "header of unpacked shardchain state for block "s + blkid.id.to_str() +
                                        " contains BlockId " + hdr_id.to_str() +
                                        " different from the one originally required");
   }
+  // LOG(INFO) << "init, counter" << counter_  << ", 13";
   if (info.r1.master_ref.write().fetch_long(1)) {
+    // LOG(INFO) << "init, counter" << counter_  << ", 14";
     BlockIdExt mc_id;
     if (!block::tlb::t_ExtBlkRef.unpack(info.r1.master_ref, mc_id, nullptr)) {
       return td::Status::Error(-668, "cannot unpack master_ref in shardchain state of "s + blkid.to_str());
@@ -140,6 +162,7 @@ td::Status ShardStateQ::init() {
   } else {
     master_ref = {};
   }
+  // LOG(INFO) << "init, counter" << counter_  << ", 15";
   return td::Status::OK();
 }
 
@@ -351,52 +374,75 @@ MasterchainStateQ* MasterchainStateQ::make_copy() const {
 
 td::Result<Ref<MasterchainStateQ>> MasterchainStateQ::fetch(const BlockIdExt& _id, td::BufferSlice _data,
                                                             Ref<vm::Cell> _root) {
+  // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 1";
   if (!ShardIdFull(_id).is_masterchain_ext()) {
+    // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 2";
     return td::Status::Error(-666,
                              "invalid masterchain block/state id passed for creating a new masterchain state object");
   }
+  // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 3";
   Ref<MasterchainStateQ> res{true, _id, std::move(_root), std::move(_data)};
-  td::Status err = res.unique_write().mc_init();
+  // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 4";
+  td::Status err = res.unique_write().mc_init(_id.counter_);
+  // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 5";
   if (err.is_error()) {
+    // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 6";
     return err;
   } else {
+    // LOG(INFO) << "Mfetch, counter" << _id.counter_  << ", 7";
     return std::move(res);
   }
 }
 
-td::Status MasterchainStateQ::mc_init() {
-  auto err = init();
+td::Status MasterchainStateQ::mc_init(std::uint64_t counter_) {
+  // LOG(INFO) << "mc_init, counter" << counter_  << ", 1";
+  auto err = init(counter_);
   if (err.is_error()) {
     return err;
   }
-  return mc_reinit();
+  // LOG(INFO) << "mc_init, counter" << counter_  << ", 2";
+  auto a = mc_reinit(counter_);
+  // LOG(INFO) << "mc_init, counter" << counter_  << ", 3";
+  return a;
 }
 
-td::Status MasterchainStateQ::mc_reinit() {
+td::Status MasterchainStateQ::mc_reinit(std::uint64_t counter_) {
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1";
   auto res = block::ConfigInfo::extract_config(
       root_cell(), block::ConfigInfo::needStateRoot | block::ConfigInfo::needValidatorSet |
-                       block::ConfigInfo::needShardHashes | block::ConfigInfo::needPrevBlocks);
+                       block::ConfigInfo::needShardHashes | block::ConfigInfo::needPrevBlocks, counter_);
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-1";
   cur_validators_.reset();
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-2";
   next_validators_.reset();
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 1-3";
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 2";
   if (res.is_error()) {
     return res.move_as_error();
   }
   config_ = res.move_as_ok();
   CHECK(config_);
   CHECK(config_->set_block_id_ext(get_block_id()));
-
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 3";
   auto cv_root = config_->get_config_param(35, 34);
   if (cv_root.not_null()) {
-    TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(cv_root)));
+    TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(cv_root), 0));
     cur_validators_ = std::move(validators);
   }
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4";
   auto nv_root = config_->get_config_param(37, 36);
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-1";
   if (nv_root.not_null()) {
-    TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(nv_root)));
+    // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-2";
+    TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(nv_root), counter_));
+    // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-3";
     next_validators_ = std::move(validators);
+    // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 4-4";
   }
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 5";
 
   zerostate_id_ = config_->get_zerostate_id();
+  // LOG(INFO) << "mc_reinit, counter" << counter_  << ", 6";
   return td::Status::OK();
 }
 
@@ -406,7 +452,7 @@ td::Status MasterchainStateQ::apply_block(BlockIdExt id, td::Ref<BlockData> bloc
     return err;
   }
   config_.reset();
-  err = mc_reinit();
+  err = mc_reinit(0);
   if (err.is_error()) {
     LOG(ERROR) << "cannot extract masterchain-specific state data from newly-computed state for block "
                << id.id.to_str() << " : " << err.to_string();
@@ -418,7 +464,7 @@ td::Status MasterchainStateQ::prepare() {
   if (config_) {
     return td::Status::OK();
   }
-  return mc_reinit();
+  return mc_reinit(0);
 }
 
 Ref<ValidatorSet> MasterchainStateQ::compute_validator_set(ShardIdFull shard, const block::ValidatorSet& vset,

@@ -84,11 +84,16 @@ td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Buff
   }
 }
 
-td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Ref<vm::DataCell> root_cell) {
+td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Ref<vm::DataCell> root_cell, std::uint64_t counter_) {
+  LOG(INFO) << "create_shard_state, counter" << counter_  << ", 1";
+  block_id.counter_ = counter_;
   auto res = ShardStateQ::fetch(block_id, {}, std::move(root_cell));
+  LOG(INFO) << "create_shard_state, counter" << counter_  << ", 2";
   if (res.is_error()) {
+    LOG(INFO) << "create_shard_state, counter" << counter_ << ", 3";
     return res.move_as_error();
   } else {
+    LOG(INFO) << "create_shard_state, counter" << counter_  << ", 4";
     return td::Ref<ShardState>{res.move_as_ok()};
   }
 }
@@ -246,6 +251,7 @@ void run_collate_hardfork(ShardIdFull shard, const BlockIdExt& min_masterchain_b
 
 void run_liteserver_query(td::BufferSlice data, td::actor::ActorId<ValidatorManager> manager,
                           td::actor::ActorId<LiteServerCache> cache, td::Promise<td::BufferSlice> promise) {
+  LOG(INFO) << "run_liteserver_query, 1" << "f->query_ len:" << data.size();
   LiteQuery::run_query(std::move(data), std::move(manager), std::move(cache), std::move(promise));
 }
 

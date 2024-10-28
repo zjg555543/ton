@@ -27,6 +27,7 @@
 #include "td/actor/core/SchedulerContext.h"
 
 #include "td/utils/format.h"
+#include "td/utils/logging.h"
 
 namespace td {
 namespace actor {
@@ -56,6 +57,7 @@ class ActorExecutor {
       : actor_info_(actor_info), dispatcher_(dispatcher), options_(options) {
     old_log_tag_ = LOG_TAG2;
     LOG_TAG2 = actor_info.get_name().c_str();
+    LOG(DEBUG) << "yus " << LOG_TAG2;
     start();
   }
   ActorExecutor(const ActorExecutor &) = delete;

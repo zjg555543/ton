@@ -17,6 +17,7 @@
     Copyright 2017-2020 Telegram Systems LLP
 */
 #include "vm/db/DynamicBagOfCellsDb.h"
+#include "td/utils/int_types.h"
 #include "vm/db/CellStorage.h"
 #include "vm/db/CellHashTable.h"
 
@@ -88,37 +89,50 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
   }
   void load_cell_async(td::Slice hash, std::shared_ptr<AsyncExecutor> executor,
                        td::Promise<Ref<DataCell>> promise) override {
+    LOG(DEBUG) << "yus load cell async 1";
     auto info = hash_table_.get_if_exists(hash);
     if (info && info->sync_with_db) {
+      LOG(DEBUG) << "yus load cell async 2";
       TRY_RESULT_PROMISE(promise, loaded_cell, info->cell->load_cell());
       promise.set_result(loaded_cell.data_cell);
       return;
     }
+    LOG(DEBUG) << "yus load cell async 3";
     SimpleExtCellCreator ext_cell_creator(cell_db_reader_);
     auto promise_ptr = std::make_shared<td::Promise<Ref<DataCell>>>(std::move(promise));
-    executor->execute_async(
-        [executor, loader = *loader_, hash = CellHash::from_slice(hash), db = this,
-         ext_cell_creator = std::move(ext_cell_creator), promise = std::move(promise_ptr)]() mutable {
-          TRY_RESULT_PROMISE((*promise), res, loader.load(hash.as_slice(), true, ext_cell_creator));
-          if (res.status != CellLoader::LoadResult::Ok) {
-            promise->set_error(td::Status::Error("cell not found"));
-            return;
-          }
-          Ref<Cell> cell = res.cell();
-          executor->execute_sync([hash, db, res = std::move(res),
-                                  ext_cell_creator = std::move(ext_cell_creator)]() mutable {
-            db->hash_table_.apply(hash.as_slice(), [&](CellInfo &info) {
-              db->update_cell_info_loaded(info, hash.as_slice(), std::move(res));
-            });
-            for (auto &ext_cell : ext_cell_creator.get_created_cells()) {
-              auto ext_cell_hash = ext_cell->get_hash();
-              db->hash_table_.apply(ext_cell_hash.as_slice(), [&](CellInfo &info) {
-                db->update_cell_info_created_ext(info, std::move(ext_cell));
-              });
-            }
-          });
-          promise->set_result(std::move(cell));
+    LOG(DEBUG) << "yus load cell async 4" << &(ext_cell_creator.get_created_cells());
+    executor->execute_async([executor, loader = *loader_, hash = CellHash::from_slice(hash), db = this,
+                             ext_cell_creator = std::move(ext_cell_creator),
+                             promise = std::move(promise_ptr)]() mutable {
+      LOG(DEBUG) << "yus load cell async 4 - 1 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
+      TRY_RESULT_PROMISE((*promise), res, loader.load(hash.as_slice(), true, ext_cell_creator));
+      LOG(DEBUG) << "yus load cell async 4 - 2 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
+      if (res.status != CellLoader::LoadResult::Ok) {
+        LOG(DEBUG) << "yus load cell async 4 - 3 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
+        promise->set_error(td::Status::Error("cell not found"));
+        return;
+      }
+      LOG(DEBUG) << "yus load cell async 4 - 4 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
+      Ref<Cell> cell = res.cell();
+      executor->execute_sync([hash, db, res = std::move(res),
+                              ext_cell_creator = std::move(ext_cell_creator)]() mutable {
+        LOG(DEBUG) << "yus load cell async 4 - 5 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
+        db->hash_table_.apply(hash.as_slice(), [&](CellInfo &info) {
+          db->update_cell_info_loaded(info, hash.as_slice(), std::move(res));
         });
+        LOG(DEBUG) << "yus load cell async 4 - 6 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
+        for (auto &ext_cell : ext_cell_creator.get_created_cells()) {
+          auto ext_cell_hash = ext_cell->get_hash();
+          db->hash_table_.apply(ext_cell_hash.as_slice(),
+                                [&](CellInfo &info) { db->update_cell_info_created_ext(info, std::move(ext_cell)); });
+        }
+        LOG(DEBUG) << "yus load cell async 4 - 7 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
+      });
+      promise->set_result(std::move(cell));
+      LOG(DEBUG) << "yus load cell async 4 - 8 " << &(ext_cell_creator.get_created_cells()) << " " << hash;
+    });
+
+    LOG(DEBUG) << "yus load cell async 5 " << &(ext_cell_creator.get_created_cells());
   }
   CellInfo &get_cell_info_force(td::Slice hash) {
     return hash_table_.apply(hash, [&](CellInfo &info) { update_cell_info_force(info, hash); });
@@ -214,7 +228,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     celldb_compress_depth_ = value;
   }
 
-  vm::ExtCellCreator& as_ext_cell_creator() override {
+  vm::ExtCellCreator &as_ext_cell_creator() override {
     return *this;
   }
 
@@ -234,8 +248,9 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
 
   class SimpleExtCellCreator : public ExtCellCreator {
    public:
-    explicit SimpleExtCellCreator(std::shared_ptr<CellDbReader> cell_db_reader) :
-        cell_db_reader_(std::move(cell_db_reader)) {}
+    explicit SimpleExtCellCreator(std::shared_ptr<CellDbReader> cell_db_reader)
+        : cell_db_reader_(std::move(cell_db_reader)) {
+    }
 
     td::Result<Ref<Cell>> ext_cell(Cell::LevelMask level_mask, td::Slice hash, td::Slice depth) override {
       TRY_RESULT(ext_cell, DynamicBocExtCell::create(PrunnedCellInfo{level_mask, hash, depth},
@@ -244,7 +259,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
       return std::move(ext_cell);
     }
 
-    std::vector<Ref<Cell>>& get_created_cells() {
+    std::vector<Ref<Cell>> &get_created_cells() {
       return created_cells_;
     }
 
@@ -347,8 +362,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     }
 
     bool not_in_db = false;
-    for_each(
-        info, [&not_in_db, this](auto &child_info) { not_in_db |= !dfs_new_cells_in_db(child_info); }, false);
+    for_each(info, [&not_in_db, this](auto &child_info) { not_in_db |= !dfs_new_cells_in_db(child_info); }, false);
 
     if (not_in_db) {
       CHECK(!info.in_db);

@@ -565,19 +565,22 @@ void ValidatorManagerImpl::get_block_data_from_db_short(BlockIdExt block_id, td:
   get_block_handle(block_id, false, std::move(P));
 }
 
-void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
-  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise));
+void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) {
+  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise), counter_);
 }
 
 void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
                                                          td::Promise<td::Ref<ShardState>> promise) {
+                                                        
+  td::PerfWarningTimer timer{"okxdebug-get_shard_state_from_db_short", 0.01};
+  LOG(INFO) << "okxdebug-get_shard_state_from_db_short";
   auto P =
       td::PromiseCreator::lambda([db = db_.get(), promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
         if (R.is_error()) {
           promise.set_error(R.move_as_error());
         } else {
           auto handle = R.move_as_ok();
-          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise));
+          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise), 2);
         }
       });
   get_block_handle(block_id, false, std::move(P));
@@ -821,6 +824,8 @@ void ValidatorManagerImpl::new_block(BlockHandle handle, td::Ref<ShardState> sta
 }
 
 void ValidatorManagerImpl::get_block_handle(BlockIdExt id, bool force, td::Promise<BlockHandle> promise) {
+  td::PerfWarningTimer timer{"okxdebug-get_block_handle", 0.01};
+  LOG(INFO) << "okxdebug-get_block_handle";
   auto it = handles_.find(id);
   if (it != handles_.end()) {
     auto handle = it->second.lock();
@@ -853,6 +858,8 @@ void ValidatorManagerImpl::get_block_handle(BlockIdExt id, bool force, td::Promi
 }
 
 void ValidatorManagerImpl::register_block_handle(BlockHandle handle, td::Promise<BlockHandle> promise) {
+  td::PerfWarningTimer timer{"okxdebug-register_block_handle", 0.01};
+  LOG(INFO) << "okxdebug-register_block_handle";
   auto it = handles_.find(handle->id());
   if (it != handles_.end()) {
     auto h = it->second.lock();

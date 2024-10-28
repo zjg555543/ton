@@ -456,7 +456,7 @@ class ValidatorManagerImpl : public ValidatorManager {
 
   void get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) override;
   void get_block_data_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise) override;
-  void get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) override;
+  void get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise, std::uint64_t counter_) override;
   void get_shard_state_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise) override;
   void get_block_candidate_from_db(PublicKey source, BlockIdExt id, FileHash collated_data_file_hash,
                                    td::Promise<BlockCandidate> promise) override;
@@ -678,7 +678,7 @@ class ValidatorManagerImpl : public ValidatorManager {
   std::unique_ptr<Callback> callback_;
   td::actor::ActorOwn<Db> db_;
 
-  bool started_ = false;
+  bool started_ = true;
   bool allow_validate_ = false;
 
  private:

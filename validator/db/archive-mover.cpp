@@ -412,11 +412,11 @@ void ArchiveMover::got_handle(BlockHandle handle) {
   auto P = td::PromiseCreator::lambda(
       [handle = handle_, SelfId = actor_id(this)](td::Result<td::Ref<vm::DataCell>> R) mutable {
         R.ensure();
-        auto S = create_shard_state(handle->id(), R.move_as_ok());
+        auto S = create_shard_state(handle->id(), R.move_as_ok(), 0);
         S.ensure();
         td::actor::send_closure(SelfId, &ArchiveMover::got_state, td::Ref<MasterchainState>{S.move_as_ok()});
       });
-  td::actor::send_closure(cell_db_, &CellDb::load_cell, handle_->state(), std::move(P));
+  td::actor::send_closure(cell_db_, &CellDb::load_cell, handle_->state(), std::move(P), 0);
 }
 
 void ArchiveMover::got_state(td::Ref<MasterchainState> state) {

@@ -214,7 +214,7 @@ td::Status test_vset() {
     return td::Status::Error("no config parameter 34");
   }
   std::cerr << "config param #34 obtained\n";
-  TRY_RESULT(cur_validators, block::Config::unpack_validator_set(std::move(cv_root)));
+  TRY_RESULT(cur_validators, block::Config::unpack_validator_set(std::move(cv_root), 0));
   // auto vconf = config->get_catchain_validators_config();
   std::cerr << "validator set unpacked\n";
   std::cerr << "unpacking ShardHashes\n";
