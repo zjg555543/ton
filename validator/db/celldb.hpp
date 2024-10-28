@@ -170,7 +170,7 @@ class CellDb : public CellDbBase {
   void update_snapshot(std::unique_ptr<td::KeyValueReader> snapshot, std::unique_ptr<td::KeyValueReader> snapshot2) {
     started_ = true;
     boc_->set_loader(std::make_unique<vm::CellLoader>(std::move(snapshot), on_load_callback_)).ensure();
-    cell_db_read_.get_actor_unsafe().update_snapshot(std::move(snapshot2));
+    td::actor::send_closure(cell_db_read_, &CellDbIn::update_snapshot, std::move(snapshot2));
   }
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
