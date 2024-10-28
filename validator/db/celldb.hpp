@@ -62,6 +62,10 @@ class CellDbIn : public CellDbBase {
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
 
+  void update_snapshot(std::unique_ptr<td::KeyValueReader> snapshot) {
+    boc_->set_loader(std::make_unique<vm::CellLoader>(std::move(snapshot), on_load_callback_)).ensure();
+  }
+
   void migrate_cell(td::Bits256 hash);
 
   void flush_db_stats();
@@ -163,9 +167,10 @@ class CellDb : public CellDbBase {
  public:
   void load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise);
   void store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise);
-  void update_snapshot(std::unique_ptr<td::KeyValueReader> snapshot) {
+  void update_snapshot(std::unique_ptr<td::KeyValueReader> snapshot, std::unique_ptr<td::KeyValueReader> snapshot2) {
     started_ = true;
     boc_->set_loader(std::make_unique<vm::CellLoader>(std::move(snapshot), on_load_callback_)).ensure();
+    cell_db_read_.get_actor_unsafe().update_snapshot(std::move(snapshot2));
   }
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
@@ -181,8 +186,8 @@ class CellDb : public CellDbBase {
   std::string path_;
   td::Ref<ValidatorManagerOptions> opts_;
 
-  td::actor::ActorOwn<CellDbIn> cell_db_;
-  td::actor::ActorOwn<CellDbIn> cell_db_read_[THREAD_COUNTS];
+  td::actor::ActorOwn<CellDbIn> cell_db_write_;
+  td::actor::ActorOwn<CellDbIn> cell_db_read_;
   std::shared_ptr<vm::KeyValue> rocks_db_;
 
   std::unique_ptr<vm::DynamicBagOfCellsDb> boc_;
