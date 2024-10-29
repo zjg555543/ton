@@ -54,6 +54,10 @@ void CandidatesBuffer::add_new_candidate(BlockIdExt id, PublicKey source, FileHa
 }
 
 void CandidatesBuffer::get_block_data(BlockIdExt id, td::Promise<td::Ref<BlockData>> promise) {
+  LOG(INFO) << "CandidatesBuffer::get_block_data"
+            << "CandidatesBuffer mailbox: " << this->get_name() << " "
+            << this->get_actor_info_ptr()->mailbox().reader().calc_size();
+  td::PerfWarningTimer timer{"CandidatesBuffer::get_block_data", 0.01};
   auto it = candidates_.find(id);
   if (it == candidates_.end()) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "unknown block candidate"));

@@ -52,6 +52,8 @@ void RootDb::store_block_data(BlockHandle handle, td::Ref<BlockData> block, td::
 }
 
 void RootDb::get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) {
+  LOG(INFO) << "in RootDb::get_block_data. RootDb mailbox: " << this->get_name() << " "
+            << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   if (!handle->received()) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "not in db"));
   } else {
@@ -64,6 +66,7 @@ void RootDb::get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockDa
           }
         });
 
+    LOG(INFO) << "RootDb::get_block_data. send closure to archive_db_.get_file";
     td::actor::send_closure(archive_db_, &ArchiveManager::get_file, handle, fileref::Block{handle->id()}, std::move(P));
   }
 }
@@ -196,6 +199,10 @@ void RootDb::store_block_candidate(BlockCandidate candidate, td::Promise<td::Uni
 
 void RootDb::get_block_candidate(PublicKey source, BlockIdExt id, FileHash collated_data_file_hash,
                                  td::Promise<BlockCandidate> promise) {
+  LOG(INFO) << "RootDb::get_block_candidate"
+            << "RootDb mailbox: " << this->get_name() << " "
+            << this->get_actor_info_ptr()->mailbox().reader().calc_size();
+  td::PerfWarningTimer timer{"RootDb::get_block_candidate", 0.01};
   auto P = td::PromiseCreator::lambda([promise = std::move(promise)](td::Result<td::BufferSlice> R) mutable {
     if (R.is_error()) {
       promise.set_error(R.move_as_error());
@@ -249,6 +256,7 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
 }
 
 void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
+  td::PerfWarningTimer timer{"RootDb::get_block_state", 0.01};
   if (handle->inited_state_boc()) {
     if (handle->deleted_state_boc()) {
       promise.set_error(td::Status::Error(ErrorCode::error, "state already gc'd"));
@@ -270,8 +278,8 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
     // static int64_t ranCount = 0;
     // ranCount++;
     // if (ranCount % 1000 == 0) {
-      // LOG(ERROR) << "RootDb mailbox: " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
-      // ranCount = 0;
+    // LOG(ERROR) << "RootDb mailbox: " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+    // ranCount = 0;
     // }
 
     // td::actor::send_closure(cell_db_read_[ranNum], &CellDb::load_cell, handle->state(), std::move(P));
@@ -342,6 +350,8 @@ void RootDb::store_block_handle(BlockHandle handle, td::Promise<td::Unit> promis
 }
 
 void RootDb::get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise) {
+  LOG(INFO) << "RootDb::get_block_handle mailbox: " << this->get_name() << " "
+               << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   td::actor::send_closure(archive_db_, &ArchiveManager::get_handle, id, std::move(promise));
 }
 
@@ -433,7 +443,7 @@ void RootDb::start_up() {
 
   cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
   // for (int i = 0; i < THREAD_COUNTS; i++){
-    // cell_db_read_[i] = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
+  // cell_db_read_[i] = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
   // }
   // cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), root_path_ + "/celldb/", opts_);
   state_db_ = td::actor::create_actor<StateDb>("statedb", actor_id(this), root_path_ + "/state/");
