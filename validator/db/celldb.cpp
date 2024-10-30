@@ -25,6 +25,7 @@
 #include "ton/ton-tl.hpp"
 #include "ton/ton-io.hpp"
 #include "common/delay.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -149,9 +150,14 @@ void CellDbIn::start_up() {
   }
 }
 
-void CellDbIn::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise) {
-  LOG(INFO) << "CellDbIn::load_cell";
-  boc_->load_cell_async(hash.as_slice(), async_executor, std::move(promise));
+void CellDbIn::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "CellDbIn::load_cell", elapsed);
+  };
+  boc_->load_cell_async(sched_ctx.counter(), hash.as_slice(), async_executor, std::move(promise));
 }
 
 void CellDbIn::store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise) {
@@ -451,8 +457,14 @@ void CellDbIn::migrate_cells() {
   }
 }
 
-void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise) {
-  td::PerfWarningTimer timer{"load_cell", 0.01};
+void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "CellDb::load_cell", elapsed);
+  };
+  const auto counter = sched_ctx.counter();
   int ranNum = GetDBRandomNum();
   static int64_t ranCount = 0;
   ranCount++;
@@ -464,19 +476,21 @@ void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise
   }
   if (!started_) {
     LOG(INFO) << "CellDb::load_cell. not started_";
-    td::actor::send_closure(cell_db_read_, &CellDbIn::load_cell, hash, std::move(promise));
+    const auto sched_ctx1 = g_query_stat.start_schedule(counter, "CellDbIn::load_cell");
+    td::actor::send_closure(cell_db_read_, &CellDbIn::load_cell, hash, std::move(promise), sched_ctx1);
   } else {
     LOG(INFO) << "CellDb::load_cell. started_ is true";
-    auto P = td::PromiseCreator::lambda([cell_db_in = cell_db_read_.get(), hash,
-                                         promise = std::move(promise)](td::Result<td::Ref<vm::DataCell>> R) mutable {
+    auto P = td::PromiseCreator::lambda([cell_db_in = cell_db_read_.get(), hash, promise = std::move(promise),
+                                         counter](td::Result<td::Ref<vm::DataCell>> R) mutable {
       if (R.is_error()) {
         LOG(INFO) << "CellDb::load_cell. R is error. send closure to CellDbIn::load_cell";
-        td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise));
+        const auto sched_ctx2 = g_query_stat.start_schedule(counter, "CellDbIn::load_cell");
+        td::actor::send_closure(cell_db_in, &CellDbIn::load_cell, hash, std::move(promise), sched_ctx2);
       } else {
         promise.set_result(R.move_as_ok());
       }
     });
-    boc_->load_cell_async(hash.as_slice(), async_executor, std::move(P));
+    boc_->load_cell_async(counter, hash.as_slice(), async_executor, std::move(P));
   }
 }
 

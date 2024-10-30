@@ -30,6 +30,7 @@
 #include "crypto/vm/db/DynamicBagOfCellsDb.h"
 #include "validator-session/validator-session-types.h"
 #include "auto/tl/lite_api.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -185,9 +186,12 @@ class ValidatorManager : public ValidatorManagerInterface {
   virtual void log_new_validator_group_stats(validatorsession::NewValidatorGroupStats stats) = 0;
   virtual void log_end_validator_group_stats(validatorsession::EndValidatorGroupStats stats) = 0;
 
-  virtual void get_block_handle_for_litequery(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise) = 0;
-  virtual void get_block_data_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise) = 0;
-  virtual void get_block_state_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise) = 0;
+  virtual void get_block_handle_for_litequery(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise,
+                                              ScheduleContext sched_ctx) = 0;
+  virtual void get_block_data_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise,
+                                            ScheduleContext sched_ctx) = 0;
+  virtual void get_block_state_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise,
+                                             ScheduleContext sched_ctx) = 0;
   virtual void get_block_by_lt_for_litequery(AccountIdPrefixFull account, LogicalTime lt,
                                              td::Promise<ConstBlockHandle> promise) = 0;
   virtual void get_block_by_unix_time_for_litequery(AccountIdPrefixFull account, UnixTime ts,

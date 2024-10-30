@@ -35,6 +35,7 @@
 #include "liteserver.hpp"
 #include "validator/fabric.h"
 #include "liteserver-cache.hpp"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -76,6 +77,11 @@ td::Result<td::Ref<BlockSignatureSet>> create_signature_set(td::BufferSlice sig_
 }
 
 td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::BufferSlice data) {
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(block_id.counter_, "create_shard_state1", elapsed);
+  };
   auto res = ShardStateQ::fetch(block_id, std::move(data));
   if (res.is_error()) {
     return res.move_as_error();
@@ -85,6 +91,11 @@ td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Buff
 }
 
 td::Result<td::Ref<ShardState>> create_shard_state(BlockIdExt block_id, td::Ref<vm::DataCell> root_cell) {
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(block_id.counter_, "create_shard_state2", elapsed);
+  };
   auto res = ShardStateQ::fetch(block_id, {}, std::move(root_cell));
   if (res.is_error()) {
     return res.move_as_error();
@@ -113,8 +124,7 @@ td::Ref<BlockSignatureSet> create_signature_set(std::vector<BlockSignature> sig_
   return td::Ref<BlockSignatureSetQ>{true, std::move(sig_set)};
 }
 
-td::Result<td::Ref<ExtMessage>> create_ext_message(td::BufferSlice data,
-                                                   block::SizeLimitsConfig::ExtMsgLimits limits) {
+td::Result<td::Ref<ExtMessage>> create_ext_message(td::BufferSlice data, block::SizeLimitsConfig::ExtMsgLimits limits) {
   TRY_RESULT(res, ExtMessageQ::create_ext_message(std::move(data), limits));
   return std::move(res);
 }
@@ -249,8 +259,10 @@ void run_liteserver_query(td::BufferSlice data, td::actor::ActorId<ValidatorMana
   LiteQuery::run_query(std::move(data), std::move(manager), std::move(cache), std::move(promise));
 }
 
-void run_fetch_account_state(WorkchainId wc, StdSmcAddress  addr, td::actor::ActorId<ValidatorManager> manager,
-                             td::Promise<std::tuple<td::Ref<vm::CellSlice>,UnixTime,LogicalTime,std::unique_ptr<block::ConfigInfo>>> promise) {
+void run_fetch_account_state(
+    WorkchainId wc, StdSmcAddress addr, td::actor::ActorId<ValidatorManager> manager,
+    td::Promise<std::tuple<td::Ref<vm::CellSlice>, UnixTime, LogicalTime, std::unique_ptr<block::ConfigInfo>>>
+        promise) {
   LiteQuery::fetch_account_state(wc, addr, std::move(manager), std::move(promise));
 }
 

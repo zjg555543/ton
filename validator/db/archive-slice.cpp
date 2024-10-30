@@ -25,13 +25,14 @@
 #include "common/delay.h"
 #include "files-async.hpp"
 #include "db-utils.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
 namespace validator {
 
 class PackageStatistics {
-  public:
+ public:
   void record_open(uint64_t count = 1) {
     open_count.fetch_add(count, std::memory_order_relaxed);
   }
@@ -39,7 +40,7 @@ class PackageStatistics {
   void record_close(uint64_t count = 1) {
     close_count.fetch_add(count, std::memory_order_relaxed);
   }
-  
+
   void record_read(double time, uint64_t bytes) {
     read_bytes.fetch_add(bytes, std::memory_order_relaxed);
     std::lock_guard guard(read_mutex);
@@ -56,10 +57,10 @@ class PackageStatistics {
     std::stringstream ss;
     ss.setf(std::ios::fixed);
     ss.precision(6);
-    
+
     ss << "ton.pack.open COUNT : " << open_count.exchange(0, std::memory_order_relaxed) << "\n";
     ss << "ton.pack.close COUNT : " << close_count.exchange(0, std::memory_order_relaxed) << "\n";
-    
+
     ss << "ton.pack.read.bytes COUNT : " << read_bytes.exchange(0, std::memory_order_relaxed) << "\n";
     ss << "ton.pack.write.bytes COUNT : " << write_bytes.exchange(0, std::memory_order_relaxed) << "\n";
 
@@ -82,7 +83,7 @@ class PackageStatistics {
     return ss.str();
   }
 
-  private:
+ private:
   std::atomic_uint64_t open_count{0};
   std::atomic_uint64_t close_count{0};
   PercentileStats read_time;
@@ -118,7 +119,7 @@ void PackageWriter::append(std::string filename, td::BufferSlice data,
       return;
     }
     start = td::Timestamp::now();
-    offset = p->append(std::move(filename), std::move(data), !async_mode_);  
+    offset = p->append(std::move(filename), std::move(data), !async_mode_);
     end = td::Timestamp::now();
     size = p->size();
   }
@@ -131,10 +132,21 @@ void PackageWriter::append(std::string filename, td::BufferSlice data,
 class PackageReader : public td::actor::Actor {
  public:
   PackageReader(std::shared_ptr<Package> package, td::uint64 offset,
-                td::Promise<std::pair<std::string, td::BufferSlice>> promise, std::shared_ptr<PackageStatistics> statistics)
-      : package_(std::move(package)), offset_(offset), promise_(std::move(promise)), statistics_(std::move(statistics)) {
+                td::Promise<std::pair<std::string, td::BufferSlice>> promise,
+                std::shared_ptr<PackageStatistics> statistics, ScheduleContext sched_ctx)
+      : package_(std::move(package))
+      , offset_(offset)
+      , promise_(std::move(promise))
+      , statistics_(std::move(statistics))
+      , sched_ctx_(sched_ctx) {
   }
   void start_up() override {
+    g_query_stat.finish_schedule(sched_ctx_);
+    const auto start0 = std::chrono::steady_clock::now();
+    SCOPE_EXIT {
+      const auto elapsed = std::chrono::steady_clock::now() - start0;
+      g_query_stat.execute_cost(sched_ctx_.counter(), "PackageReader::start_up", elapsed);
+    };
     auto start = td::Timestamp::now();
     auto result = package_->read(offset_);
     if (statistics_ && result.is_ok()) {
@@ -150,6 +162,7 @@ class PackageReader : public td::actor::Actor {
   td::uint64 offset_;
   td::Promise<std::pair<std::string, td::BufferSlice>> promise_;
   std::shared_ptr<PackageStatistics> statistics_;
+  ScheduleContext sched_ctx_;
 };
 
 void ArchiveSlice::add_handle(BlockHandle handle, td::Promise<td::Unit> promise) {
@@ -313,7 +326,13 @@ void ArchiveSlice::add_file_cont(size_t idx, FileReference ref_id, td::uint64 of
   promise.set_value(td::Unit());
 }
 
-void ArchiveSlice::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise) {
+void ArchiveSlice::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "ArchiveSlice::get_handle", elapsed);
+  };
   if (destroyed_) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "package already gc'd"));
     return;
@@ -359,7 +378,15 @@ void ArchiveSlice::get_temp_handle(BlockIdExt block_id, td::Promise<ConstBlockHa
   promise.set_value(std::move(handle));
 }
 
-void ArchiveSlice::get_file(ConstBlockHandle handle, FileReference ref_id, td::Promise<td::BufferSlice> promise) {
+void ArchiveSlice::get_file(ConstBlockHandle handle, FileReference ref_id, td::Promise<td::BufferSlice> promise,
+                            ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "ArchiveSlice::get_file", elapsed);
+  };
+  const auto counter = sched_ctx.counter();
   if (destroyed_) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "package already gc'd"));
     return;
@@ -386,7 +413,10 @@ void ArchiveSlice::get_file(ConstBlockHandle handle, FileReference ref_id, td::P
           promise.set_value(std::move(R.move_as_ok().second));
         }
       });
-  td::actor::create_actor<PackageReader>("reader", p->package, offset, std::move(P), statistics_.pack_statistics).release();
+  const auto sched_ctx2 = g_query_stat.start_schedule(counter, "PackageReader reader");
+  td::actor::create_actor<PackageReader>("reader", p->package, offset, std::move(P), statistics_.pack_statistics,
+                                         sched_ctx2)
+      .release();
 }
 
 void ArchiveSlice::get_block_common(AccountIdPrefixFull account_id,
@@ -491,14 +521,14 @@ void ArchiveSlice::get_block_by_seqno(AccountIdPrefixFull account_id, BlockSeqno
   return get_block_common(
       account_id,
       [seqno](ton_api::db_lt_desc_value &w) {
-        return seqno > static_cast<BlockSeqno>(w.last_seqno_)
-                   ? 1
-                   : seqno == static_cast<BlockSeqno>(w.last_seqno_) ? 0 : -1;
+        return seqno > static_cast<BlockSeqno>(w.last_seqno_)    ? 1
+               : seqno == static_cast<BlockSeqno>(w.last_seqno_) ? 0
+                                                                 : -1;
       },
       [seqno](ton_api::db_lt_el_value &w) {
-        return seqno > static_cast<BlockSeqno>(w.id_->seqno_)
-                   ? 1
-                   : seqno == static_cast<BlockSeqno>(w.id_->seqno_) ? 0 : -1;
+        return seqno > static_cast<BlockSeqno>(w.id_->seqno_)    ? 1
+               : seqno == static_cast<BlockSeqno>(w.id_->seqno_) ? 0
+                                                                 : -1;
       },
       true, std::move(promise));
 }
@@ -644,7 +674,7 @@ void ArchiveSlice::do_close() {
   packages_.clear();
 }
 
-template<typename T>
+template <typename T>
 td::Promise<T> ArchiveSlice::begin_async_query(td::Promise<T> promise) {
   ++active_queries_;
   return [SelfId = actor_id(this), promise = std::move(promise)](td::Result<T> R) mutable {

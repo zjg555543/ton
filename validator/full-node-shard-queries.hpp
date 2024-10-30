@@ -21,6 +21,7 @@
 #include "validator/validator.h"
 #include "ton/ton-tl.hpp"
 #include "full-node-serializer.hpp"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -77,7 +78,8 @@ class BlockFullSender : public td::actor::Actor {
         td::actor::send_closure(SelfId, &BlockFullSender::got_block_data, R.move_as_ok()->data());
       }
     });
-    td::actor::send_closure(manager_, &ValidatorManagerInterface::get_block_data_from_db, handle_, std::move(P));
+    td::actor::send_closure(manager_, &ValidatorManagerInterface::get_block_data_from_db, handle_, std::move(P),
+                            ScheduleContext());
 
     if (!is_proof_link_) {
       auto Q = td::PromiseCreator::lambda([SelfId = actor_id(this)](td::Result<td::Ref<Proof>> R) {

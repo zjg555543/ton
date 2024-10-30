@@ -125,6 +125,7 @@ set(TDUTILS_SOURCE
   td/utils/TsFileLog.cpp
   td/utils/unicode.cpp
   td/utils/utf8.cpp
+  td/utils/query_stat.cpp
 
   td/utils/port/Clocks.h
   td/utils/port/config.h

@@ -26,6 +26,7 @@
 #include "common/checksum.h"
 #include "validator/stats-merger.h"
 #include "td/actor/MultiPromise.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -51,8 +52,16 @@ void RootDb::store_block_data(BlockHandle handle, td::Ref<BlockData> block, td::
                           std::move(P));
 }
 
-void RootDb::get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) {
-  LOG(INFO) << "in RootDb::get_block_data. RootDb mailbox: " << this->get_name() << " "
+void RootDb::get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise,
+                            ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "RootDb::get_block_data", elapsed);
+  };
+  LOG(INFO) << "RootDb::get_block_data. RootDb mailbox: " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   if (!handle->received()) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "not in db"));
@@ -66,8 +75,9 @@ void RootDb::get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockDa
           }
         });
 
-    LOG(INFO) << "RootDb::get_block_data. send closure to archive_db_.get_file";
-    td::actor::send_closure(archive_db_, &ArchiveManager::get_file, handle, fileref::Block{handle->id()}, std::move(P));
+    const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ArchiveManager::get_file");
+    td::actor::send_closure(archive_db_, &ArchiveManager::get_file, handle, fileref::Block{handle->id()}, std::move(P),
+                            sched_ctx2);
   }
 }
 
@@ -103,7 +113,7 @@ void RootDb::get_block_signatures(ConstBlockHandle handle, td::Promise<td::Ref<B
       }
     });
     td::actor::send_closure(archive_db_, &ArchiveManager::get_temp_file_short, fileref::Signatures{handle->id()},
-                            std::move(P));
+                            std::move(P), ScheduleContext());
   }
 }
 
@@ -139,7 +149,8 @@ void RootDb::get_block_proof(ConstBlockHandle handle, td::Promise<td::Ref<Proof>
             promise.set_result(create_proof(id, R.move_as_ok()));
           }
         });
-    td::actor::send_closure(archive_db_, &ArchiveManager::get_file, handle, fileref::Proof{handle->id()}, std::move(P));
+    td::actor::send_closure(archive_db_, &ArchiveManager::get_file, handle, fileref::Proof{handle->id()}, std::move(P),
+                            ScheduleContext());
   }
 }
 
@@ -175,7 +186,7 @@ void RootDb::get_block_proof_link(ConstBlockHandle handle, td::Promise<td::Ref<P
           }
         });
     td::actor::send_closure(archive_db_, &ArchiveManager::get_file, handle, fileref::ProofLink{handle->id()},
-                            std::move(P));
+                            std::move(P), ScheduleContext());
   }
 }
 
@@ -198,11 +209,17 @@ void RootDb::store_block_candidate(BlockCandidate candidate, td::Promise<td::Uni
 }
 
 void RootDb::get_block_candidate(PublicKey source, BlockIdExt id, FileHash collated_data_file_hash,
-                                 td::Promise<BlockCandidate> promise) {
+                                 td::Promise<BlockCandidate> promise, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "RootDb::get_block_candidate", elapsed);
+  };
   LOG(INFO) << "RootDb::get_block_candidate"
             << "RootDb mailbox: " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
-  td::PerfWarningTimer timer{"RootDb::get_block_candidate", 0.01};
   auto P = td::PromiseCreator::lambda([promise = std::move(promise)](td::Result<td::BufferSlice> R) mutable {
     if (R.is_error()) {
       promise.set_error(R.move_as_error());
@@ -218,8 +235,9 @@ void RootDb::get_block_candidate(PublicKey source, BlockIdExt id, FileHash colla
                                        std::move(val->collated_data_)});
     }
   });
+  const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ArchiveManager::get_temp_file_short");
   td::actor::send_closure(archive_db_, &ArchiveManager::get_temp_file_short,
-                          fileref::Candidate{source, id, collated_data_file_hash}, std::move(P));
+                          fileref::Candidate{source, id, collated_data_file_hash}, std::move(P), sched_ctx2);
 }
 
 void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
@@ -251,12 +269,19 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
     });
     td::actor::send_closure(cell_db_, &CellDb::store_cell, handle->id(), state->root_cell(), std::move(P));
   } else {
-    get_block_state(handle, std::move(promise));
+    get_block_state(handle, std::move(promise), ScheduleContext());
   }
 }
 
-void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
-  td::PerfWarningTimer timer{"RootDb::get_block_state", 0.01};
+void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise,
+                             ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "RootDb::get_block_state", elapsed);
+  };
   if (handle->inited_state_boc()) {
     if (handle->deleted_state_boc()) {
       promise.set_error(td::Status::Error(ErrorCode::error, "state already gc'd"));
@@ -272,7 +297,8 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
             promise.set_value(S.move_as_ok());
           }
         });
-    td::actor::send_closure(cell_db_, &CellDb::load_cell, handle->state(), std::move(P));
+    const auto sched_ctx2 = g_query_stat.start_schedule(counter, "CellDb::load_cell");
+    td::actor::send_closure(cell_db_, &CellDb::load_cell, handle->state(), std::move(P), sched_ctx2);
 
     // int ranNum = GetDBRandomNum();
     // static int64_t ranCount = 0;
@@ -349,10 +375,12 @@ void RootDb::store_block_handle(BlockHandle handle, td::Promise<td::Unit> promis
   td::actor::send_closure(archive_db_, &ArchiveManager::update_handle, std::move(handle), std::move(promise));
 }
 
-void RootDb::get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise) {
+void RootDb::get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
   LOG(INFO) << "RootDb::get_block_handle mailbox: " << this->get_name() << " "
-               << this->get_actor_info_ptr()->mailbox().reader().calc_size();
-  td::actor::send_closure(archive_db_, &ArchiveManager::get_handle, id, std::move(promise));
+            << this->get_actor_info_ptr()->mailbox().reader().calc_size();
+  const auto sched_ctx2 = g_query_stat.start_schedule(sched_ctx.counter(), "ArchiveManager::get_handle");
+  td::actor::send_closure(archive_db_, &ArchiveManager::get_handle, id, std::move(promise), sched_ctx2);
 }
 
 void RootDb::try_get_static_file(FileHash file_hash, td::Promise<td::BufferSlice> promise) {

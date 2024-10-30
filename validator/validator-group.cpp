@@ -58,7 +58,8 @@ void ValidatorGroup::generate_block_candidate(
       });
 }
 
-void ValidatorGroup::generated_block_candidate(std::shared_ptr<CachedCollatedBlock> cache, td::Result<BlockCandidate> R) {
+void ValidatorGroup::generated_block_candidate(std::shared_ptr<CachedCollatedBlock> cache,
+                                               td::Result<BlockCandidate> R) {
   if (R.is_error()) {
     for (auto &p : cache->promises) {
       p.set_error(R.error().clone());
@@ -114,8 +115,7 @@ void ValidatorGroup::validate_block_candidate(td::uint32 round_id, BlockCandidat
       auto v = R.move_as_ok();
       v.visit(td::overloaded(
           [&](UnixTime ts) {
-            td::actor::send_closure(SelfId, &ValidatorGroup::update_approve_cache, block_to_cache_key(block),
-                                    ts);
+            td::actor::send_closure(SelfId, &ValidatorGroup::update_approve_cache, block_to_cache_key(block), ts);
             td::actor::send_closure(SelfId, &ValidatorGroup::add_available_block_candidate, block.pubkey.as_bits256(),
                                     block.id, block.collated_file_hash);
             promise.set_value({ts, false});
@@ -221,7 +221,7 @@ void ValidatorGroup::get_approved_candidate(PublicKey source, RootHash root_hash
   BlockIdExt id = create_next_block_id(root_hash, file_hash);
 
   td::actor::send_closure(manager_, &ValidatorManager::get_block_candidate_from_db, source, id, collated_data_file_hash,
-                          std::move(promise));
+                          std::move(promise), ScheduleContext());
 }
 
 BlockIdExt ValidatorGroup::create_next_block_id(RootHash root_hash, FileHash file_hash) const {
@@ -391,7 +391,7 @@ void ValidatorGroup::start(std::vector<BlockIdExt> prev, BlockIdExt min_masterch
   stats.last_key_block_seqno = last_key_block_seqno_;
   stats.timestamp = td::Clocks::system();
   td::uint32 idx = 0;
-  for (const auto& node : validator_set_->export_vector()) {
+  for (const auto &node : validator_set_->export_vector()) {
     PublicKeyHash id = ValidatorFullId{node.key}.compute_short_id();
     if (id == local_id_) {
       stats.self_idx = idx;
@@ -470,7 +470,7 @@ void ValidatorGroup::get_validator_group_info_for_litequery_cont(
 
   auto result = create_tl_object<lite_api::liteServer_nonfinal_validatorGroupInfo>();
   result->next_block_id_ = create_tl_lite_block_id_simple(next_block_id);
-  for (const BlockIdExt& prev : prev_block_ids_) {
+  for (const BlockIdExt &prev : prev_block_ids_) {
     result->prev_.push_back(create_tl_lite_block_id(prev));
   }
   result->cc_seqno_ = validator_set_->get_catchain_seqno();

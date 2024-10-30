@@ -93,7 +93,8 @@ void WaitBlockData::start() {
       }
     });
 
-    td::actor::send_closure(manager_, &ValidatorManager::get_block_data_from_db, handle_, std::move(P));
+    td::actor::send_closure(manager_, &ValidatorManager::get_block_data_from_db, handle_, std::move(P),
+                            ScheduleContext());
   } else if (try_read_static_file_.is_in_past() && (is_hardfork_ || !handle_->id().is_masterchain())) {
     try_read_static_file_ = td::Timestamp::in(30.0);
 
@@ -212,7 +213,8 @@ void WaitBlockData::force_read_from_db() {
     }
   });
 
-  td::actor::send_closure(manager_, &ValidatorManager::get_block_data_from_db, handle_, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_block_data_from_db, handle_, std::move(P),
+                          ScheduleContext());
 }
 
 void WaitBlockData::got_static_file(td::BufferSlice data) {

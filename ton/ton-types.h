@@ -221,6 +221,7 @@ inline bool operator<(const ShardIdFull& x, const BlockId& y) {
 }
 
 struct BlockIdExt {
+  std::int64_t counter_ = -1;
   BlockId id;
   RootHash root_hash;
   FileHash file_hash;

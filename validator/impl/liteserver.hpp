@@ -35,13 +35,18 @@ namespace validator {
 using td::Ref;
 
 class LiteQuery : public td::actor::Actor {
+ public:
+  ScheduleContext query_ctx_;
+
+ private:
   td::BufferSlice query_;
   td::actor::ActorId<ton::validator::ValidatorManager> manager_;
   td::actor::ActorId<LiteServerCache> cache_;
   td::Timestamp timeout_;
   td::Promise<td::BufferSlice> promise_;
 
-  td::Promise<std::tuple<td::Ref<vm::CellSlice>,UnixTime,LogicalTime,std::unique_ptr<block::ConfigInfo>>> acc_state_promise_;
+  td::Promise<std::tuple<td::Ref<vm::CellSlice>, UnixTime, LogicalTime, std::unique_ptr<block::ConfigInfo>>>
+      acc_state_promise_;
 
   tl_object_ptr<ton::lite_api::Function> query_obj_;
   bool use_cache_{false};
@@ -84,13 +89,16 @@ class LiteQuery : public td::actor::Actor {
   };  // version 1.1; +1 = build block proof chains, +2 = masterchainInfoExt, +4 = runSmcMethod
   LiteQuery(td::BufferSlice data, td::actor::ActorId<ton::validator::ValidatorManager> manager,
             td::actor::ActorId<LiteServerCache> cache, td::Promise<td::BufferSlice> promise);
-  LiteQuery(WorkchainId wc, StdSmcAddress  acc_addr, td::actor::ActorId<ton::validator::ValidatorManager> manager,
-            td::Promise<std::tuple<td::Ref<vm::CellSlice>,UnixTime,LogicalTime,std::unique_ptr<block::ConfigInfo>>> promise);
+  LiteQuery(WorkchainId wc, StdSmcAddress acc_addr, td::actor::ActorId<ton::validator::ValidatorManager> manager,
+            td::Promise<std::tuple<td::Ref<vm::CellSlice>, UnixTime, LogicalTime, std::unique_ptr<block::ConfigInfo>>>
+                promise);
   static void run_query(td::BufferSlice data, td::actor::ActorId<ton::validator::ValidatorManager> manager,
                         td::actor::ActorId<LiteServerCache> cache, td::Promise<td::BufferSlice> promise);
 
-  static void fetch_account_state(WorkchainId wc, StdSmcAddress  acc_addr, td::actor::ActorId<ton::validator::ValidatorManager> manager,
-                                  td::Promise<std::tuple<td::Ref<vm::CellSlice>,UnixTime,LogicalTime,std::unique_ptr<block::ConfigInfo>>> promise);
+  static void fetch_account_state(
+      WorkchainId wc, StdSmcAddress acc_addr, td::actor::ActorId<ton::validator::ValidatorManager> manager,
+      td::Promise<std::tuple<td::Ref<vm::CellSlice>, UnixTime, LogicalTime, std::unique_ptr<block::ConfigInfo>>>
+          promise);
 
  private:
   bool fatal_error(td::Status error);
@@ -117,7 +125,7 @@ class LiteQuery : public td::actor::Actor {
   void continue_getZeroState(BlockIdExt blkid, td::BufferSlice state);
   void perform_sendMessage(td::BufferSlice ext_msg);
   void perform_getAccountState(BlockIdExt blkid, WorkchainId workchain, StdSmcAddress addr, int mode);
-  void continue_getAccountState_0(Ref<MasterchainState> mc_state, BlockIdExt blkid);
+  void continue_getAccountState_0(Ref<MasterchainState> mc_state, BlockIdExt blkid, ScheduleContext sched_ctx);
   void continue_getAccountState();
   void finish_getAccountState(td::BufferSlice shard_proof);
   void perform_fetchAccountState();
@@ -143,11 +151,15 @@ class LiteQuery : public td::actor::Actor {
   void perform_getConfigParams(BlockIdExt blkid, int mode, std::vector<int> param_list = {});
   void continue_getConfigParams(int mode, std::vector<int> param_list);
   void perform_lookupBlock(BlockId blkid, int mode, LogicalTime lt, UnixTime utime);
-  void perform_lookupBlockWithProof(BlockId blkid, BlockIdExt client_mc_blkid, int mode, LogicalTime lt, UnixTime utime);
-  void continue_lookupBlockWithProof_getHeaderProof(Ref<ton::validator::BlockData> block, AccountIdPrefixFull req_prefix, BlockSeqno masterchain_ref_seqno);
+  void perform_lookupBlockWithProof(BlockId blkid, BlockIdExt client_mc_blkid, int mode, LogicalTime lt,
+                                    UnixTime utime);
+  void continue_lookupBlockWithProof_getHeaderProof(Ref<ton::validator::BlockData> block,
+                                                    AccountIdPrefixFull req_prefix, BlockSeqno masterchain_ref_seqno);
   void continue_lookupBlockWithProof_gotPrevBlockData(Ref<BlockData> prev_block, BlockSeqno masterchain_ref_seqno);
-  void continue_lookupBlockWithProof_buildProofLinks(td::Ref<BlockData> cur_block, std::vector<std::pair<BlockIdExt, td::Ref<vm::Cell>>> result);
-  void continue_lookupBlockWithProof_getClientMcBlockDataState(std::vector<std::pair<BlockIdExt, td::Ref<vm::Cell>>> links);
+  void continue_lookupBlockWithProof_buildProofLinks(td::Ref<BlockData> cur_block,
+                                                     std::vector<std::pair<BlockIdExt, td::Ref<vm::Cell>>> result);
+  void continue_lookupBlockWithProof_getClientMcBlockDataState(
+      std::vector<std::pair<BlockIdExt, td::Ref<vm::Cell>>> links);
   void continue_lookupBlockWithProof_getMcBlockPrev(std::vector<std::pair<BlockIdExt, td::Ref<vm::Cell>>> links);
   void perform_listBlockTransactions(BlockIdExt blkid, int mode, int count, Bits256 account, LogicalTime lt);
   void finish_listBlockTransactions(int mode, int count);
@@ -192,10 +204,10 @@ class LiteQuery : public td::actor::Actor {
   bool request_mc_block_data_state(BlockIdExt blkid);
   bool request_mc_proof(BlockIdExt blkid, int mode = 0);
   bool request_zero_state(BlockIdExt blkid);
-  void got_block_state(BlockIdExt blkid, Ref<ShardState> state);
-  void got_mc_block_state(BlockIdExt blkid, Ref<ShardState> state);
-  void got_block_data(BlockIdExt blkid, Ref<BlockData> data);
-  void got_mc_block_data(BlockIdExt blkid, Ref<BlockData> data);
+  void got_block_state(BlockIdExt blkid, Ref<ShardState> state, ScheduleContext sched_ctx);
+  void got_mc_block_state(BlockIdExt blkid, Ref<ShardState> state, ScheduleContext sched_ctx);
+  void got_block_data(BlockIdExt blkid, Ref<BlockData> data, ScheduleContext sched_ctx);
+  void got_mc_block_data(BlockIdExt blkid, Ref<BlockData> data, ScheduleContext sched_ctx);
   void got_mc_block_proof(BlockIdExt blkid, int mode, Ref<Proof> proof);
   void got_block_proof_link(BlockIdExt blkid, Ref<ProofLink> proof_link);
   void got_zero_state(BlockIdExt blkid, td::BufferSlice zerostate);

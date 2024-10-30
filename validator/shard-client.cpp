@@ -65,8 +65,8 @@ void ShardClient::got_init_handle_from_db(BlockHandle handle) {
     R.ensure();
     td::actor::send_closure(SelfId, &ShardClient::got_init_state_from_db, td::Ref<MasterchainState>{R.move_as_ok()});
   });
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, masterchain_block_handle_,
-                          std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, masterchain_block_handle_, std::move(P),
+                          ScheduleContext());
 }
 
 void ShardClient::got_init_state_from_db(td::Ref<MasterchainState> state) {
@@ -279,7 +279,8 @@ void ShardClient::force_update_shard_client(BlockHandle handle, td::Promise<td::
         td::actor::send_closure(SelfId, &ShardClient::force_update_shard_client_ex, std::move(handle),
                                 td::Ref<MasterchainState>{R.move_as_ok()}, std::move(promise));
       });
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, std::move(handle), std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, std::move(handle), std::move(P),
+                          ScheduleContext());
 }
 
 void ShardClient::force_update_shard_client_ex(BlockHandle handle, td::Ref<MasterchainState> state,

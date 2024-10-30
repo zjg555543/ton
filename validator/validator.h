@@ -36,6 +36,7 @@
 #include "interfaces/shard.h"
 #include "catchain/catchain-types.h"
 #include "interfaces/external-message.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -48,7 +49,7 @@ class DownloadToken {
 
 struct PerfTimerStats {
   std::string name;
-  std::deque<std::pair<double, double>> stats; // <Time::now(), duration>
+  std::deque<std::pair<double, double>> stats;  // <Time::now(), duration>
 };
 
 struct CollatorOptions : public td::CntObject {
@@ -153,8 +154,7 @@ struct ValidatorManagerOptions : public td::CntObject {
                                                                                        ShardCheckMode) { return true; },
       bool allow_blockchain_init = false, double sync_blocks_before = 3600, double block_ttl = 86400,
       double state_ttl = 86400, double archive_ttl = 86400 * 7, double key_proof_ttl = 86400 * 3650,
-      double max_mempool_num = 999999,
-      bool initial_sync_disabled = false);
+      double max_mempool_num = 999999, bool initial_sync_disabled = false);
 };
 
 class ValidatorManagerInterface : public td::actor::Actor {
@@ -214,8 +214,8 @@ class ValidatorManagerInterface : public td::actor::Actor {
   virtual void get_top_masterchain_block(td::Promise<BlockIdExt> promise) = 0;
   virtual void get_top_masterchain_state_block(
       td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise) = 0;
-  virtual void get_last_liteserver_state_block(
-      td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise) = 0;
+  virtual void get_last_liteserver_state_block(td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise,
+                                               ScheduleContext sched_ctx) = 0;
 
   virtual void get_block_data(BlockHandle handle, td::Promise<td::BufferSlice> promise) = 0;
   virtual void check_zero_state_exists(BlockIdExt block_id, td::Promise<bool> promise) = 0;
@@ -250,12 +250,15 @@ class ValidatorManagerInterface : public td::actor::Actor {
   virtual void get_download_token(size_t download_size, td::uint32 priority, td::Timestamp timeout,
                                   td::Promise<std::unique_ptr<DownloadToken>> promise) = 0;
 
-  virtual void get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) = 0;
+  virtual void get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise,
+                                      ScheduleContext sched_ctx) = 0;
   virtual void get_block_data_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise) = 0;
   virtual void get_block_candidate_from_db(PublicKey source, BlockIdExt id, FileHash collated_data_file_hash,
-                                           td::Promise<BlockCandidate> promise) = 0;
-  virtual void get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) = 0;
-  virtual void get_shard_state_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise) = 0;
+                                           td::Promise<BlockCandidate> promise, ScheduleContext sched_ctx) = 0;
+  virtual void get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise,
+                                       ScheduleContext sched_ctx) = 0;
+  virtual void get_shard_state_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise,
+                                             ScheduleContext sched_ctx) = 0;
   virtual void get_block_proof_from_db(ConstBlockHandle handle, td::Promise<td::Ref<Proof>> promise) = 0;
   virtual void get_block_proof_from_db_short(BlockIdExt id, td::Promise<td::Ref<Proof>> promise) = 0;
   virtual void get_block_proof_link_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ProofLink>> promise) = 0;

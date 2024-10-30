@@ -28,6 +28,7 @@
 #include "ton/ton-io.hpp"
 #include "td/utils/overloaded.h"
 #include "td/utils/filesystem.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -75,7 +76,7 @@ void ValidatorManagerImpl::get_block_data(BlockHandle handle, td::Promise<td::Bu
     }
   });
 
-  get_block_data_from_db(handle, std::move(P));
+  get_block_data_from_db(handle, std::move(P), ScheduleContext());
 }
 
 void ValidatorManagerImpl::get_block_proof(BlockHandle handle, td::Promise<td::BufferSlice> promise) {
@@ -374,8 +375,9 @@ void ValidatorManagerImpl::get_shard_blocks(BlockIdExt masterchain_block_id,
                                             td::Promise<std::vector<td::Ref<ShardTopBlockDescription>>> promise) {
 }
 
-void ValidatorManagerImpl::get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) {
-  td::actor::send_closure(db_, &Db::get_block_data, handle, std::move(promise));
+void ValidatorManagerImpl::get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise,
+                                                  ScheduleContext sched_ctx) {
+  td::actor::send_closure(db_, &Db::get_block_data, handle, std::move(promise), ScheduleContext());
 }
 
 void ValidatorManagerImpl::get_block_data_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise) {
@@ -385,25 +387,26 @@ void ValidatorManagerImpl::get_block_data_from_db_short(BlockIdExt block_id, td:
           promise.set_error(R.move_as_error());
         } else {
           auto handle = R.move_as_ok();
-          td::actor::send_closure(db, &Db::get_block_data, std::move(handle), std::move(promise));
+          td::actor::send_closure(db, &Db::get_block_data, std::move(handle), std::move(promise), ScheduleContext());
         }
       });
   get_block_handle(block_id, false, std::move(P));
 }
 
-void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
-  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise));
+void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise,
+                                                   ScheduleContext sched_ctx) {
+  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise), ScheduleContext());
 }
 
-void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
-                                                         td::Promise<td::Ref<ShardState>> promise) {
+void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise,
+                                                         ScheduleContext sched_ctx) {
   auto P =
       td::PromiseCreator::lambda([db = db_.get(), promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
         if (R.is_error()) {
           promise.set_error(R.move_as_error());
         } else {
           auto handle = R.move_as_ok();
-          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise));
+          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise), ScheduleContext());
         }
       });
   get_block_handle(block_id, false, std::move(P));
@@ -411,8 +414,9 @@ void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
 
 void ValidatorManagerImpl::get_block_candidate_from_db(PublicKey source, BlockIdExt id,
                                                        FileHash collated_data_file_hash,
-                                                       td::Promise<BlockCandidate> promise) {
-  td::actor::send_closure(db_, &Db::get_block_candidate, source, id, collated_data_file_hash, std::move(promise));
+                                                       td::Promise<BlockCandidate> promise, ScheduleContext sched_ctx) {
+  td::actor::send_closure(db_, &Db::get_block_candidate, source, id, collated_data_file_hash, std::move(promise),
+                          ScheduleContext());
 }
 
 void ValidatorManagerImpl::get_block_proof_from_db(ConstBlockHandle handle, td::Promise<td::Ref<Proof>> promise) {
@@ -528,17 +532,18 @@ void ValidatorManagerImpl::get_block_handle(BlockIdExt id, bool force, td::Promi
           handle = R.move_as_ok();
         }
         td::actor::send_closure(SelfId, &ValidatorManagerImpl::register_block_handle, std::move(handle),
-                                std::move(promise));
+                                std::move(promise), ScheduleContext());
       });
 
-  td::actor::send_closure(db_, &Db::get_block_handle, id, std::move(P));
+  td::actor::send_closure(db_, &Db::get_block_handle, id, std::move(P), ScheduleContext());
 }
 
 void ValidatorManagerImpl::get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) {
   td::actor::send_closure(db_, &Db::get_cell_db_reader, std::move(promise));
 }
 
-void ValidatorManagerImpl::register_block_handle(BlockHandle handle, td::Promise<BlockHandle> promise) {
+void ValidatorManagerImpl::register_block_handle(BlockHandle handle, td::Promise<BlockHandle> promise,
+                                                 ScheduleContext sched_ctx) {
   auto it = handles_.find(handle->id());
   if (it != handles_.end()) {
     auto h = it->second.lock();

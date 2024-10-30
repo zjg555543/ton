@@ -22,6 +22,7 @@
 #include "files-async.hpp"
 #include "td/db/RocksDb.h"
 #include "common/delay.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -150,26 +151,45 @@ void ArchiveManager::add_temp_file_short(FileReference ref_id, td::BufferSlice d
                           std::move(promise));
 }
 
-void ArchiveManager::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise) {
+void ArchiveManager::get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "ArchiveManager::get_handle", elapsed);
+  };
   LOG(INFO) << "ArchiveManager::get_handle mailbox: " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   auto f = get_file_desc_by_seqno(block_id.shard_full(), block_id.seqno(), false);
   if (f) {
     auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), block_id, idx = get_max_temp_file_desc_idx(),
-                                         promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
+                                         promise = std::move(promise), counter](td::Result<BlockHandle> R) mutable {
       if (R.is_ok()) {
         promise.set_value(R.move_as_ok());
       } else {
-        td::actor::send_closure(SelfId, &ArchiveManager::get_handle_cont, block_id, idx, std::move(promise));
+        const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ArchiveManager::get_handle_cont");
+        td::actor::send_closure(SelfId, &ArchiveManager::get_handle_cont, block_id, idx, std::move(promise),
+                                sched_ctx2);
       }
     });
-    td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_handle, block_id, std::move(P));
+    const auto sched_ctx3 = g_query_stat.start_schedule(counter, "ArchiveSlice::get_handle");
+    td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_handle, block_id, std::move(P), sched_ctx3);
   } else {
-    get_handle_cont(block_id, get_max_temp_file_desc_idx(), std::move(promise));
+    get_handle_cont(block_id, get_max_temp_file_desc_idx(), std::move(promise),
+                    ScheduleContext::new_only_counter(counter));
   }
 }
 
-void ArchiveManager::get_handle_cont(BlockIdExt block_id, PackageId idx, td::Promise<BlockHandle> promise) {
+void ArchiveManager::get_handle_cont(BlockIdExt block_id, PackageId idx, td::Promise<BlockHandle> promise,
+                                     ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "ArchiveManager::get_handle_cont", elapsed);
+  };
   if (idx.is_empty()) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "block handle not in db"));
     return;
@@ -180,17 +200,28 @@ void ArchiveManager::get_handle_cont(BlockIdExt block_id, PackageId idx, td::Pro
     return;
   }
   auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), block_id, idx = get_prev_temp_file_desc_idx(idx),
-                                       promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
+                                       promise = std::move(promise), counter](td::Result<BlockHandle> R) mutable {
     if (R.is_ok()) {
-      td::actor::send_closure(SelfId, &ArchiveManager::get_handle_finish, R.move_as_ok(), std::move(promise));
+      const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ArchiveManager::get_handle_finish");
+      td::actor::send_closure(SelfId, &ArchiveManager::get_handle_finish, R.move_as_ok(), std::move(promise),
+                              sched_ctx2);
     } else {
-      td::actor::send_closure(SelfId, &ArchiveManager::get_handle_cont, block_id, idx, std::move(promise));
+      const auto sched_ctx3 = g_query_stat.start_schedule(counter, "ArchiveManager::get_handle_cont");
+      td::actor::send_closure(SelfId, &ArchiveManager::get_handle_cont, block_id, idx, std::move(promise), sched_ctx3);
     }
   });
-  td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_handle, block_id, std::move(P));
+  const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ArchiveSlice::get_handle");
+  td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_handle, block_id, std::move(P), sched_ctx2);
 }
 
-void ArchiveManager::get_handle_finish(BlockHandle handle, td::Promise<BlockHandle> promise) {
+void ArchiveManager::get_handle_finish(BlockHandle handle, td::Promise<BlockHandle> promise,
+                                       ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "ArchiveManager::get_handle_finish", elapsed);
+  };
   auto f = get_file_desc_by_seqno(handle->id().shard_full(), handle->id().seqno(), false);
   if (!f) {
     promise.set_value(std::move(handle));
@@ -203,10 +234,19 @@ void ArchiveManager::get_handle_finish(BlockHandle handle, td::Promise<BlockHand
       promise.set_value(std::move(handle));
     }
   });
-  td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_handle, handle->id(), std::move(P));
+  const auto sched_ctx2 = g_query_stat.start_schedule(sched_ctx.counter(), "ArchiveSlice::get_handle");
+  td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_handle, handle->id(), std::move(P), sched_ctx2);
 }
 
-void ArchiveManager::get_file_short(FileReference ref_id, td::Promise<td::BufferSlice> promise) {
+void ArchiveManager::get_file_short(FileReference ref_id, td::Promise<td::BufferSlice> promise,
+                                    ScheduleContext sched_ctx) {
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "ArchiveManager::get_file_short", elapsed);
+  };
+
   bool search_in_key = false;
   BlockIdExt block_id;
   ref_id.ref().visit(td::overloaded(
@@ -222,19 +262,22 @@ void ArchiveManager::get_file_short(FileReference ref_id, td::Promise<td::Buffer
   if (search_in_key) {
     auto f = get_file_desc_by_seqno(block_id.shard_full(), block_id.seqno(), true);
     if (f) {
-      auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), ref_id,
-                                           promise = std::move(promise)](td::Result<td::BufferSlice> R) mutable {
+      auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), ref_id, promise = std::move(promise),
+                                           counter](td::Result<td::BufferSlice> R) mutable {
         if (R.is_ok()) {
           promise.set_value(R.move_as_ok());
         } else {
-          td::actor::send_closure(SelfId, &ArchiveManager::get_temp_file_short, std::move(ref_id), std::move(promise));
+          const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ArchiveManager::get_temp_file_short");
+          td::actor::send_closure(SelfId, &ArchiveManager::get_temp_file_short, std::move(ref_id), std::move(promise),
+                                  sched_ctx2);
         }
       });
-      td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_file, nullptr, ref_id, std::move(P));
+      const auto sched_ctx3 = g_query_stat.start_schedule(counter, "ArchiveSlice::get_file");
+      td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_file, nullptr, ref_id, std::move(P), sched_ctx3);
       return;
     }
   }
-  get_temp_file_short(std::move(ref_id), std::move(promise));
+  get_temp_file_short(std::move(ref_id), std::move(promise), sched_ctx);
 }
 
 void ArchiveManager::get_key_block_proof(FileReference ref_id, td::Promise<td::BufferSlice> promise) {
@@ -253,7 +296,9 @@ void ArchiveManager::get_key_block_proof(FileReference ref_id, td::Promise<td::B
   if (search_in_key) {
     auto f = get_file_desc_by_seqno(block_id.shard_full(), block_id.seqno(), true);
     if (f) {
-      td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_file, nullptr, ref_id, std::move(promise));
+      // TODO: fix assign default ScheduleContext to get_file
+      td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_file, nullptr, ref_id, std::move(promise),
+                              ScheduleContext());
     } else {
       promise.set_error(td::Status::Error(ErrorCode::notready, "key proof not in db"));
     }
@@ -263,39 +308,63 @@ void ArchiveManager::get_key_block_proof(FileReference ref_id, td::Promise<td::B
   }
 }
 
-void ArchiveManager::get_temp_file_short(FileReference ref_id, td::Promise<td::BufferSlice> promise) {
+void ArchiveManager::get_temp_file_short(FileReference ref_id, td::Promise<td::BufferSlice> promise,
+                                         ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "ArchiveManager::get_temp_file_short", elapsed);
+  };
   LOG(INFO) << "ArchiveManager::get_temp_file_short"
             << "ArchiveManager mailbox: " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
-  td::PerfWarningTimer timer{"RootDb::get_block_candidate", 0.01};
-  get_file_short_cont(std::move(ref_id), get_max_temp_file_desc_idx(), std::move(promise));
+  get_file_short_cont(std::move(ref_id), get_max_temp_file_desc_idx(), std::move(promise),
+                      ScheduleContext::new_only_counter(counter));
 }
 
-void ArchiveManager::get_file_short_cont(FileReference ref_id, PackageId idx, td::Promise<td::BufferSlice> promise) {
+void ArchiveManager::get_file_short_cont(FileReference ref_id, PackageId idx, td::Promise<td::BufferSlice> promise,
+                                         ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
   auto f = get_temp_file_desc_by_idx(idx);
   if (!f) {
     promise.set_error(td::Status::Error(ErrorCode::notready, "file not in db"));
     return;
   }
   auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), ref_id, idx = get_prev_temp_file_desc_idx(idx),
-                                       promise = std::move(promise)](td::Result<td::BufferSlice> R) mutable {
+                                       promise = std::move(promise), counter](td::Result<td::BufferSlice> R) mutable {
     if (R.is_ok()) {
       promise.set_value(R.move_as_ok());
     } else {
-      td::actor::send_closure(SelfId, &ArchiveManager::get_file_short_cont, std::move(ref_id), idx, std::move(promise));
+      const auto sched_ctx1 = g_query_stat.start_schedule(counter, "ArchiveManager::get_file_short_cont");
+      td::actor::send_closure(SelfId, &ArchiveManager::get_file_short_cont, std::move(ref_id), idx, std::move(promise),
+                              sched_ctx1);
     }
   });
-  td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_file, nullptr, std::move(ref_id), std::move(P));
+  const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ArchiveSlice::get_file");
+  td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_file, nullptr, std::move(ref_id), std::move(P),
+                          sched_ctx2);
 }
 
-void ArchiveManager::get_file(ConstBlockHandle handle, FileReference ref_id, td::Promise<td::BufferSlice> promise) {
-  LOG(INFO) << "ArchiveManager::get_file. RootDb mailbox: " << this->get_name() << " "
+void ArchiveManager::get_file(ConstBlockHandle handle, FileReference ref_id, td::Promise<td::BufferSlice> promise,
+                              ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "ArchiveManager::get_file", elapsed);
+  };
+  LOG(INFO) << "ArchiveManager::get_file mailbox: " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   if (handle->moved_to_archive()) {
     auto f = get_file_desc(handle->id().shard_full(), get_package_id(handle->masterchain_ref_block()), 0, 0, 0, false);
     if (f) {
+      const auto sched_ctx1 = g_query_stat.start_schedule(counter, "ArchiveSlice::get_file");
       td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_file, std::move(handle), std::move(ref_id),
-                              std::move(promise));
+                              std::move(promise), sched_ctx1);
       return;
     }
   }
@@ -303,19 +372,24 @@ void ArchiveManager::get_file(ConstBlockHandle handle, FileReference ref_id, td:
     auto f = get_file_desc(handle->id().shard_full(), get_package_id(handle->masterchain_ref_block()), 0, 0, 0, false);
     if (f) {
       auto P = td::PromiseCreator::lambda([SelfId = actor_id(this), ref_id, idx = get_max_temp_file_desc_idx(),
-                                           promise = std::move(promise)](td::Result<td::BufferSlice> R) mutable {
+                                           promise = std::move(promise),
+                                           counter = handle->id().counter_](td::Result<td::BufferSlice> R) mutable {
         if (R.is_ok()) {
           promise.set_value(R.move_as_ok());
         } else {
-          td::actor::send_closure(SelfId, &ArchiveManager::get_file_short_cont, ref_id, idx, std::move(promise));
+          const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ArchiveManager::get_file_short_cont");
+          td::actor::send_closure(SelfId, &ArchiveManager::get_file_short_cont, ref_id, idx, std::move(promise),
+                                  sched_ctx2);
         }
       });
+      const auto sched_ctx2 = g_query_stat.start_schedule(handle->id().counter_, "ArchiveSlice::get_file");
       td::actor::send_closure(f->file_actor_id(), &ArchiveSlice::get_file, std::move(handle), std::move(ref_id),
-                              std::move(P));
+                              std::move(P), sched_ctx2);
       return;
     }
   }
-  get_file_short_cont(std::move(ref_id), get_max_temp_file_desc_idx(), std::move(promise));
+  get_file_short_cont(std::move(ref_id), get_max_temp_file_desc_idx(), std::move(promise),
+                      ScheduleContext::new_only_counter(counter));
 }
 
 void ArchiveManager::register_perm_state(FileReferenceShort id) {

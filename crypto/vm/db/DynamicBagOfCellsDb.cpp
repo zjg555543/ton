@@ -27,6 +27,7 @@
 #include "td/utils/ThreadSafeCounter.h"
 
 #include "vm/cellslice.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace vm {
 namespace {
@@ -86,7 +87,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     TRY_RESULT(loaded_cell, get_cell_info_force(hash).cell->load_cell());
     return std::move(loaded_cell.data_cell);
   }
-  void load_cell_async(td::Slice hash, std::shared_ptr<AsyncExecutor> executor,
+  void load_cell_async(int64_t counter, td::Slice hash, std::shared_ptr<AsyncExecutor> executor,
                        td::Promise<Ref<DataCell>> promise) override {
     auto info = hash_table_.get_if_exists(hash);
     if (info && info->sync_with_db) {
@@ -95,10 +96,17 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
       return;
     }
     SimpleExtCellCreator ext_cell_creator(cell_db_reader_);
+    const auto sched_ctx = g_query_stat.start_schedule(counter, "execute load cell async");
     auto promise_ptr = std::make_shared<td::Promise<Ref<DataCell>>>(std::move(promise));
     executor->execute_async([executor, loader = *loader_, hash = CellHash::from_slice(hash), db = this,
-                             ext_cell_creator = std::move(ext_cell_creator),
-                             promise = std::move(promise_ptr)]() mutable {
+                             ext_cell_creator = std::move(ext_cell_creator), promise = std::move(promise_ptr),
+                             sched_ctx]() mutable {
+      g_query_stat.finish_schedule(sched_ctx);
+      const auto start = std::chrono::steady_clock::now();
+      SCOPE_EXIT {
+        const auto elapsed = std::chrono::steady_clock::now() - start;
+        g_query_stat.execute_cost(sched_ctx.counter(), "execute load cell async", elapsed);
+      };
       TRY_RESULT_PROMISE((*promise), res, loader.load(hash.as_slice(), true, ext_cell_creator));
       if (res.status != CellLoader::LoadResult::Ok) {
         promise->set_error(td::Status::Error("cell not found 1"));

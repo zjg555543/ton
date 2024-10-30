@@ -25,6 +25,7 @@
 #include "td/utils/port/path.h"
 #include "ton/ton-io.hpp"
 #include "downloaders/download-state.hpp"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -210,7 +211,8 @@ void ArchiveImporter::applied_masterchain_block(BlockHandle handle) {
     td::actor::send_closure(SelfId, &ArchiveImporter::got_new_materchain_state,
                             td::Ref<MasterchainState>(R.move_as_ok()));
   });
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P),
+                          ScheduleContext());
 }
 
 void ArchiveImporter::got_new_materchain_state(td::Ref<MasterchainState> state) {
@@ -236,7 +238,8 @@ void ArchiveImporter::check_next_shard_client_seqno(BlockSeqno seqno) {
       td::actor::send_closure(SelfId, &ArchiveImporter::got_masterchain_state,
                               td::Ref<MasterchainState>{R.move_as_ok()});
     });
-    td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db_short, b, std::move(P));
+    td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db_short, b, std::move(P),
+                            ScheduleContext());
   }
 }
 

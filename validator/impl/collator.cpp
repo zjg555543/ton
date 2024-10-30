@@ -222,7 +222,8 @@ void Collator::start_up() {
               td::actor::send_closure_later(std::move(self), &Collator::after_get_mc_state,
                                             std::make_pair(Ref<MasterchainState>(res.move_as_ok()), block_id));
             }
-          });
+          },
+          ScheduleContext());
     }
   }
   // 3. load previous block(s) and corresponding state(s)
@@ -258,7 +259,8 @@ void Collator::start_up() {
   if (!is_hardfork_) {
     LOG(DEBUG) << "sending get_external_messages() query to Manager";
     ++pending;
-    td::actor::send_closure_later(manager, &ValidatorManager::get_external_messages, shard_,
+    td::actor::send_closure_later(
+        manager, &ValidatorManager::get_external_messages, shard_,
         [self = get_self()](td::Result<std::vector<std::pair<Ref<ExtMessage>, int>>> res) -> void {
           LOG(DEBUG) << "got answer to get_external_messages() query";
           td::actor::send_closure_later(std::move(self), &Collator::after_get_external_messages, std::move(res));
@@ -1968,12 +1970,9 @@ bool Collator::init_lt() {
  * @returns True if the configuration parameters were successfully fetched and initialized, false otherwise.
  */
 bool Collator::fetch_config_params() {
-  auto res = block::FetchConfigParams::fetch_config_params(*config_,
-                                      &old_mparams_, &storage_prices_, &storage_phase_cfg_,
-                                      &rand_seed_, &compute_phase_cfg_, &action_phase_cfg_,
-                                      &masterchain_create_fee_, &basechain_create_fee_,
-                                      workchain(), now_
-                                     );
+  auto res = block::FetchConfigParams::fetch_config_params(
+      *config_, &old_mparams_, &storage_prices_, &storage_phase_cfg_, &rand_seed_, &compute_phase_cfg_,
+      &action_phase_cfg_, &masterchain_create_fee_, &basechain_create_fee_, workchain(), now_);
   if (res.is_error()) {
     return fatal_error(res.move_as_error());
   }
@@ -2830,13 +2829,10 @@ Ref<vm::Cell> Collator::create_ordinary_transaction(Ref<vm::Cell> msg_root,
  *          Returns error_code == 669 if the error is fatal and the block can not be produced.
  *          Returns error_code == 701 if the transaction can not be included into block, but it's ok (external or too early internal).
  */
-td::Result<std::unique_ptr<block::transaction::Transaction>> Collator::impl_create_ordinary_transaction(Ref<vm::Cell> msg_root,
-                                                         block::Account* acc,
-                                                         UnixTime utime, LogicalTime lt,
-                                                         block::StoragePhaseConfig* storage_phase_cfg,
-                                                         block::ComputePhaseConfig* compute_phase_cfg,
-                                                         block::ActionPhaseConfig* action_phase_cfg,
-                                                         bool external, LogicalTime after_lt) {
+td::Result<std::unique_ptr<block::transaction::Transaction>> Collator::impl_create_ordinary_transaction(
+    Ref<vm::Cell> msg_root, block::Account* acc, UnixTime utime, LogicalTime lt,
+    block::StoragePhaseConfig* storage_phase_cfg, block::ComputePhaseConfig* compute_phase_cfg,
+    block::ActionPhaseConfig* action_phase_cfg, bool external, LogicalTime after_lt) {
   if (acc->last_trans_end_lt_ >= lt && acc->transactions.empty()) {
     return td::Status::Error(-669, PSTRING() << "last transaction time in the state of account " << acc->workchain
                                              << ":" << acc->addr.to_hex() << " is too large");
@@ -3076,7 +3072,7 @@ int Collator::process_one_new_message(block::NewOutMsg msg, bool enqueue_only, R
       defer = true;
     }
   } else {
-    auto &x = unprocessed_deferred_messages_[src_addr];
+    auto& x = unprocessed_deferred_messages_[src_addr];
     CHECK(x > 0);
     if (--x == 0) {
       unprocessed_deferred_messages_.erase(src_addr);

@@ -65,18 +65,19 @@ class DynamicBagOfCellsDb {
   virtual td::Status set_loader(std::unique_ptr<CellLoader> loader) = 0;
 
   virtual void set_celldb_compress_depth(td::uint32 value) = 0;
-  virtual vm::ExtCellCreator& as_ext_cell_creator() = 0;
+  virtual vm::ExtCellCreator &as_ext_cell_creator() = 0;
 
   static std::unique_ptr<DynamicBagOfCellsDb> create();
 
   class AsyncExecutor {
    public:
-    virtual ~AsyncExecutor() {}
+    virtual ~AsyncExecutor() {
+    }
     virtual void execute_async(std::function<void()> f) = 0;
     virtual void execute_sync(std::function<void()> f) = 0;
   };
 
-  virtual void load_cell_async(td::Slice hash, std::shared_ptr<AsyncExecutor> executor,
+  virtual void load_cell_async(int64_t counter, td::Slice hash, std::shared_ptr<AsyncExecutor> executor,
                                td::Promise<Ref<DataCell>> promise) = 0;
 };
 

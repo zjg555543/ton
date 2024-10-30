@@ -49,6 +49,7 @@
 #include "validator/stats-merger.h"
 
 #include <fstream>
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -176,7 +177,7 @@ void ValidatorManagerImpl::validate_block_proof_rel(BlockIdExt block_id, BlockId
                                   std::move(s), skip_sig);
           }
         });
-    get_shard_state_from_db_short(rel_block_id, std::move(P));
+    get_shard_state_from_db_short(rel_block_id, std::move(P), ScheduleContext());
   } else {
     auto P =
         td::PromiseCreator::lambda([block_id, SelfId = actor_id(this), proof = pp.move_as_ok(), promise = std::move(Q),
@@ -282,7 +283,7 @@ void ValidatorManagerImpl::get_block_data(BlockHandle handle, td::Promise<td::Bu
     }
   });
 
-  td::actor::send_closure(db_, &Db::get_block_data, std::move(handle), std::move(P));
+  td::actor::send_closure(db_, &Db::get_block_data, std::move(handle), std::move(P), ScheduleContext());
 }
 
 void ValidatorManagerImpl::check_zero_state_exists(BlockIdExt block_id, td::Promise<bool> promise) {
@@ -994,8 +995,11 @@ void ValidatorManagerImpl::complete_ihr_messages(std::vector<IhrMessage::Hash> t
   }
 }
 
-void ValidatorManagerImpl::get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) {
-  td::actor::send_closure(db_, &Db::get_block_data, std::move(handle), std::move(promise));
+void ValidatorManagerImpl::get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise,
+                                                  ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto sched_ctx2 = g_query_stat.start_schedule(sched_ctx.counter(), "RootDb::get_block_data");
+  td::actor::send_closure(db_, &Db::get_block_data, std::move(handle), std::move(promise), sched_ctx2);
 }
 
 void ValidatorManagerImpl::get_block_data_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise) {
@@ -1005,27 +1009,41 @@ void ValidatorManagerImpl::get_block_data_from_db_short(BlockIdExt block_id, td:
           promise.set_error(R.move_as_error());
         } else {
           auto handle = R.move_as_ok();
-          td::actor::send_closure(db, &Db::get_block_data, std::move(handle), std::move(promise));
+          td::actor::send_closure(db, &Db::get_block_data, std::move(handle), std::move(promise), ScheduleContext());
         }
       });
   get_block_handle(block_id, false, std::move(P));
 }
 
-void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) {
-  td::PerfWarningTimer timer{"ValidatorManagerImpl::get_shard_state_from_db", 0.01};
-  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise));
+void ValidatorManagerImpl::get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise,
+                                                   ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "ValidatorManagerImpl::get_shard_state_from_db", elapsed);
+  };
+  const auto sched_ctx2 = g_query_stat.start_schedule(sched_ctx.counter(), "RootDb::get_block_state");
+  td::actor::send_closure(db_, &Db::get_block_state, handle, std::move(promise), sched_ctx2);
 }
 
-void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
-                                                         td::Promise<td::Ref<ShardState>> promise) {
-  td::PerfWarningTimer timer{"ValidatorManagerImpl::get_shard_state_from_db_short", 0.01};
-  auto P =
-      td::PromiseCreator::lambda([db = db_.get(), promise = std::move(promise)](td::Result<BlockHandle> R) mutable {
+void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise,
+                                                         ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "ValidatorManagerImpl::get_shard_state_from_db_short", elapsed);
+  };
+  auto P = td::PromiseCreator::lambda(
+      [db = db_.get(), promise = std::move(promise), counter](td::Result<BlockHandle> R) mutable {
         if (R.is_error()) {
           promise.set_error(R.move_as_error());
         } else {
           auto handle = R.move_as_ok();
-          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise));
+          const auto sched_ctx = g_query_stat.start_schedule(counter, "RootDb::get_block_state");
+          td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(promise), sched_ctx);
         }
       });
   get_block_handle(block_id, false, std::move(P));
@@ -1033,12 +1051,14 @@ void ValidatorManagerImpl::get_shard_state_from_db_short(BlockIdExt block_id,
 
 void ValidatorManagerImpl::get_block_candidate_from_db(PublicKey source, BlockIdExt id,
                                                        FileHash collated_data_file_hash,
-                                                       td::Promise<BlockCandidate> promise) {
+                                                       td::Promise<BlockCandidate> promise, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
   LOG(INFO) << "ValidatorManagerImpl::get_block_candidate_from_db"
             << "manager mailbox: " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
-  td::PerfWarningTimer timer{"CandidatesBuffer::get_block_candidate_from_db", 0.01};
-  td::actor::send_closure(db_, &Db::get_block_candidate, source, id, collated_data_file_hash, std::move(promise));
+  const auto sched_ctx2 = g_query_stat.start_schedule(id.counter_, "RootDb::get_block_candidate");
+  td::actor::send_closure(db_, &Db::get_block_candidate, source, id, collated_data_file_hash, std::move(promise),
+                          sched_ctx2);
 }
 
 void ValidatorManagerImpl::get_block_proof_from_db(ConstBlockHandle handle, td::Promise<td::Ref<Proof>> promise) {
@@ -1410,8 +1430,13 @@ void ValidatorManagerImpl::new_block(BlockHandle handle, td::Ref<ShardState> sta
 }
 
 void ValidatorManagerImpl::get_block_handle(BlockIdExt id, bool force, td::Promise<BlockHandle> promise) {
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(id.counter_, "ValidatorManagerImpl::get_block_handle", elapsed);
+  };
   LOG(INFO) << "ValidatorManagerImpl::get_block_handle mailbox: " << this->get_name() << " "
-               << this->get_actor_info_ptr()->mailbox().reader().calc_size();
+            << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   if (!id.is_valid()) {
     promise.set_error(td::Status::Error(ErrorCode::protoviolation, "bad block id"));
     return;
@@ -1461,13 +1486,21 @@ void ValidatorManagerImpl::get_block_handle(BlockIdExt id, bool force, td::Promi
     }
     CHECK(handle);
     CHECK(handle->id() == id);
-    td::actor::send_closure(SelfId, &ValidatorManagerImpl::register_block_handle, std::move(handle));
+    const auto sched_ctx = g_query_stat.start_schedule(id.counter_, "ValidatorManagerImpl::register_block_handle");
+    td::actor::send_closure(SelfId, &ValidatorManagerImpl::register_block_handle, std::move(handle), sched_ctx);
   });
 
-  td::actor::send_closure(db_, &Db::get_block_handle, id, std::move(P));
+  const auto sched_ctx = g_query_stat.start_schedule(id.counter_, "RootDb::get_block_handle");
+  td::actor::send_closure(db_, &Db::get_block_handle, id, std::move(P), sched_ctx);
 }
 
-void ValidatorManagerImpl::register_block_handle(BlockHandle handle) {
+void ValidatorManagerImpl::register_block_handle(BlockHandle handle, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "ValidatorManagerImpl::register_block_handle", elapsed);
+  };
   CHECK(handles_.find(handle->id()) == handles_.end());
   handles_.emplace(handle->id(), std::weak_ptr<BlockHandleInterface>(handle));
   add_handle_to_lru(handle);
@@ -1529,7 +1562,8 @@ void ValidatorManagerImpl::get_top_masterchain_state_block(
 }
 
 void ValidatorManagerImpl::get_last_liteserver_state_block(
-    td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise) {
+    td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise, ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
   auto state = do_get_last_liteserver_state();
   if (state.is_null()) {
     promise.set_error(td::Status::Error(ton::ErrorCode::notready, "not started"));
@@ -1888,7 +1922,7 @@ void ValidatorManagerImpl::checked_archive_slice(std::vector<BlockSeqno> seqno) 
           td::actor::send_closure(client, &ShardClient::force_update_shard_client_ex, std::move(handle),
                                   td::Ref<MasterchainState>{R.move_as_ok()}, std::move(P));
         });
-        td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(P));
+        td::actor::send_closure(db, &Db::get_block_state, std::move(handle), std::move(P), ScheduleContext());
       });
   get_block_handle(b, true, std::move(P));
 }
@@ -2960,79 +2994,123 @@ void ValidatorManagerImpl::log_end_validator_group_stats(validatorsession::EndVa
   LOG(INFO) << "Writing end validator group stats for " << stats.session_id;
 }
 
-void ValidatorManagerImpl::get_block_handle_for_litequery(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise) {
+void ValidatorManagerImpl::get_block_handle_for_litequery(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise,
+                                                          ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "ValidatorManagerImpl::get_block_handle_for_litequery", elapsed);
+  };
   get_block_handle(block_id, false,
                    [SelfId = actor_id(this), block_id, promise = std::move(promise),
                     allow_not_applied = opts_->nonfinal_ls_queries_enabled()](td::Result<BlockHandle> R) mutable {
                      if (R.is_ok() && (allow_not_applied || R.ok()->is_applied())) {
                        promise.set_value(R.move_as_ok());
                      } else {
+                       const auto sched_ctx = g_query_stat.start_schedule(
+                           block_id.counter_, "ValidatorManagerImpl::process_block_handle_for_litequery_error");
                        td::actor::send_closure(SelfId, &ValidatorManagerImpl::process_block_handle_for_litequery_error,
-                                               block_id, std::move(R), std::move(promise));
+                                               block_id, std::move(R), std::move(promise), sched_ctx);
                      }
                    });
 }
 
-void ValidatorManagerImpl::get_block_data_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise) {
-  LOG(INFO) << "ValidatorManagerImpl::get_block_data_for_litequery";
+void ValidatorManagerImpl::get_block_data_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise,
+                                                        ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "ValidatorManagerImpl::get_block_data_for_litequery", elapsed);
+  };
   if (candidates_buffer_.empty()) {
-  LOG(INFO) << "ValidatorManagerImpl::get_block_data_for_litequery: candidates_buffer_.empty() is empty";
+    LOG(INFO) << "ValidatorManagerImpl::get_block_data_for_litequery: candidates_buffer_.empty() is empty";
     get_block_handle_for_litequery(
-        block_id, [manager = actor_id(this), promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {
+        block_id,
+        [manager = actor_id(this), promise = std::move(promise), counter](td::Result<ConstBlockHandle> R) mutable {
           TRY_RESULT_PROMISE(promise, handle, std::move(R));
+          const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ValidatorManagerImpl::get_block_data_from_db");
           td::actor::send_closure_later(manager, &ValidatorManager::get_block_data_from_db, std::move(handle),
-                                        std::move(promise));
-        });
+                                        std::move(promise), sched_ctx2);
+        },
+        ScheduleContext::new_only_counter(counter));
   } else {
-  LOG(INFO) << "ValidatorManagerImpl::get_block_data_for_litequery: candidates_buffer_.empty() not empty";
+    LOG(INFO) << "ValidatorManagerImpl::get_block_data_for_litequery: candidates_buffer_.empty() not empty";
+    const auto sched_ctx3 = g_query_stat.start_schedule(counter, "CandidatesBuffer::get_block_data");
     td::actor::send_closure(
         candidates_buffer_, &CandidatesBuffer::get_block_data, block_id,
-        [manager = actor_id(this), promise = std::move(promise), block_id](td::Result<td::Ref<BlockData>> R) mutable {
+        [manager = actor_id(this), promise = std::move(promise), block_id,
+         counter](td::Result<td::Ref<BlockData>> R) mutable {
           if (R.is_ok()) {
             promise.set_result(R.move_as_ok());
             return;
           }
-          td::actor::send_closure(manager, &ValidatorManagerImpl::get_block_handle_for_litequery, block_id,
-                                  [manager, promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {
-                                    TRY_RESULT_PROMISE(promise, handle, std::move(R));
-                                    td::actor::send_closure_later(manager, &ValidatorManager::get_block_data_from_db,
-                                                                  std::move(handle), std::move(promise));
-                                  });
-        });
+          const auto sched_ctx4 =
+              g_query_stat.start_schedule(counter, "ValidatorManagerImpl::get_block_handle_for_litequery");
+          td::actor::send_closure(
+              manager, &ValidatorManagerImpl::get_block_handle_for_litequery, block_id,
+              [manager, promise = std::move(promise), counter](td::Result<ConstBlockHandle> R) mutable {
+                TRY_RESULT_PROMISE(promise, handle, std::move(R));
+                const auto sched_ctx5 =
+                    g_query_stat.start_schedule(counter, "ValidatorManagerImpl::get_block_data_from_db");
+                td::actor::send_closure_later(manager, &ValidatorManager::get_block_data_from_db, std::move(handle),
+                                              std::move(promise), sched_ctx5);
+              },
+              sched_ctx4);
+        },
+        sched_ctx3);
   }
 }
 
-void ValidatorManagerImpl::get_block_state_for_litequery(BlockIdExt block_id,
-                                                         td::Promise<td::Ref<ShardState>> promise) {
-
-  LOG(INFO) << "ValidatorManagerImpl::get_block_state_for_litequery. requesting state for block (" << block_id.to_str() << ")"
-            << "ValidatorManagerImpl mailbox: " << this->get_name() << " "
+void ValidatorManagerImpl::get_block_state_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise,
+                                                         ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto counter = sched_ctx.counter();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(counter, "ValidatorManagerImpl::get_block_state_for_litequery", elapsed);
+  };
+  LOG(INFO) << "ValidatorManagerImpl mailbox: " << this->get_name() << " "
             << this->get_actor_info_ptr()->mailbox().reader().calc_size();
-  td::PerfWarningTimer timer{"ValidatorManagerImpl::get_block_state_for_litequery", 0.01};
   if (candidates_buffer_.empty()) {
     LOG(INFO) << "ValidatorManagerImpl::get_block_state_for_litequery: candidates_buffer_ is empty";
     get_block_handle_for_litequery(
-        block_id, [manager = actor_id(this), promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {
+        block_id,
+        [manager = actor_id(this), promise = std::move(promise), counter](td::Result<ConstBlockHandle> R) mutable {
           TRY_RESULT_PROMISE(promise, handle, std::move(R));
+          const auto sched_ctx2 = g_query_stat.start_schedule(counter, "ValidatorManagerImpl::get_shard_state_from_db");
           td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db, std::move(handle),
-                                        std::move(promise));
-        });
+                                        std::move(promise), sched_ctx2);
+        },
+        ScheduleContext::new_only_counter(counter));
   } else {
     LOG(INFO) << "ValidatorManagerImpl::get_block_state_for_litequery: candidates_buffer_ not empty";
+    const auto sched_ctx3 = g_query_stat.start_schedule(counter, "CandidatesBuffer::get_block_state");
     td::actor::send_closure(
         candidates_buffer_, &CandidatesBuffer::get_block_state, block_id,
-        [manager = actor_id(this), promise = std::move(promise), block_id](td::Result<td::Ref<ShardState>> R) mutable {
+        [manager = actor_id(this), promise = std::move(promise), block_id,
+         counter](td::Result<td::Ref<ShardState>> R) mutable {
           if (R.is_ok()) {
             promise.set_result(R.move_as_ok());
             return;
           }
-          td::actor::send_closure(manager, &ValidatorManagerImpl::get_block_handle_for_litequery, block_id,
-                                  [manager, promise = std::move(promise)](td::Result<ConstBlockHandle> R) mutable {
-                                    TRY_RESULT_PROMISE(promise, handle, std::move(R));
-                                    td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db,
-                                                                  std::move(handle), std::move(promise));
-                                  });
-        });
+          const auto sched_ctx4 =
+              g_query_stat.start_schedule(counter, "ValidatorManagerImpl::get_block_handle_for_litequery");
+          td::actor::send_closure(
+              manager, &ValidatorManagerImpl::get_block_handle_for_litequery, block_id,
+              [manager, promise = std::move(promise), counter](td::Result<ConstBlockHandle> R) mutable {
+                TRY_RESULT_PROMISE(promise, handle, std::move(R));
+                const auto sched_ctx5 =
+                    g_query_stat.start_schedule(counter, "ValidatorManagerImpl::get_shard_state_from_db");
+                td::actor::send_closure_later(manager, &ValidatorManager::get_shard_state_from_db, std::move(handle),
+                                              std::move(promise), sched_ctx5);
+              },
+              sched_ctx4);
+        },
+        sched_ctx3);
   }
 }
 
@@ -3078,7 +3156,15 @@ void ValidatorManagerImpl::get_block_by_seqno_for_litequery(AccountIdPrefixFull 
 
 void ValidatorManagerImpl::process_block_handle_for_litequery_error(BlockIdExt block_id,
                                                                     td::Result<BlockHandle> r_handle,
-                                                                    td::Promise<ConstBlockHandle> promise) {
+                                                                    td::Promise<ConstBlockHandle> promise,
+                                                                    ScheduleContext sched_ctx) {
+  g_query_stat.finish_schedule(sched_ctx);
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(sched_ctx.counter(), "ValidatorManagerImpl::process_block_handle_for_litequery_error",
+                              elapsed);
+  };
   td::Status err;
   if (r_handle.is_error()) {
     err = r_handle.move_as_error();
@@ -3167,7 +3253,7 @@ void ValidatorManagerImpl::get_block_candidate_for_litequery(PublicKey source, B
     promise.set_error(td::Status::Error("query is not allowed"));
     return;
   }
-  get_block_candidate_from_db(source, block_id, collated_data_hash, std::move(promise));
+  get_block_candidate_from_db(source, block_id, collated_data_hash, std::move(promise), ScheduleContext());
 }
 
 void ValidatorManagerImpl::get_validator_groups_info_for_litequery(

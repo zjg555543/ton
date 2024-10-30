@@ -43,7 +43,8 @@ class RootDb : public Db {
   void start_up() override;
 
   void store_block_data(BlockHandle handle, td::Ref<BlockData> block, td::Promise<td::Unit> promise) override;
-  void get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) override;
+  void get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise,
+                      ScheduleContext sched_ctx) override;
 
   void store_block_signatures(BlockHandle handle, td::Ref<BlockSignatureSet> data,
                               td::Promise<td::Unit> promise) override;
@@ -57,16 +58,17 @@ class RootDb : public Db {
 
   void store_block_candidate(BlockCandidate candidate, td::Promise<td::Unit> promise) override;
   void get_block_candidate(PublicKey source, BlockIdExt id, FileHash collated_data_file_hash,
-                           td::Promise<BlockCandidate> promise) override;
+                           td::Promise<BlockCandidate> promise, ScheduleContext sched_ctx) override;
 
   void store_block_state(BlockHandle handle, td::Ref<ShardState> state,
                          td::Promise<td::Ref<ShardState>> promise) override;
-  void get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) override;
+  void get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise,
+                       ScheduleContext sched_ctx) override;
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) override;
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise) override;
 
   void store_block_handle(BlockHandle handle, td::Promise<td::Unit> promise) override;
-  void get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise) override;
+  void get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise, ScheduleContext sched_ctx) override;
   void get_block_handle_external(BlockIdExt id, bool force, td::Promise<BlockHandle> promise) {
     td::actor::send_closure(validator_manager_, &ValidatorManager::get_block_handle, id, force, std::move(promise));
   }

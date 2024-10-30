@@ -233,14 +233,14 @@ class ValidatorManagerImpl : public ValidatorManager {
     std::map<MessageId<ExtMessage>, std::unique_ptr<MessageExt<ExtMessage>>> ext_messages_;
     std::map<std::pair<ton::WorkchainId, ton::StdSmcAddress>, std::map<ExtMessage::Hash, MessageId<ExtMessage>>>
         ext_addr_messages_;
-    void erase(const MessageId<ExtMessage>& id) {
+    void erase(const MessageId<ExtMessage> &id) {
       auto it = ext_messages_.find(id);
       CHECK(it != ext_messages_.end());
       ext_addr_messages_[it->second->address()].erase(id.hash);
       ext_messages_.erase(it);
     }
   };
-  std::map<int, ExtMessages> ext_msgs_;  // priority -> messages
+  std::map<int, ExtMessages> ext_msgs_;                                                    // priority -> messages
   std::map<ExtMessage::Hash, std::pair<int, MessageId<ExtMessage>>> ext_messages_hashes_;  // hash -> priority
   td::Timestamp cleanup_mempool_at_;
   // IHR ?
@@ -400,7 +400,7 @@ class ValidatorManagerImpl : public ValidatorManager {
   void store_persistent_state_file(BlockIdExt block_id, BlockIdExt masterchain_block_id, td::BufferSlice state,
                                    td::Promise<td::Unit> promise) override;
   void store_persistent_state_file_gen(BlockIdExt block_id, BlockIdExt masterchain_block_id,
-                                       std::function<td::Status(td::FileFd&)> write_data,
+                                       std::function<td::Status(td::FileFd &)> write_data,
                                        td::Promise<td::Unit> promise) override;
   void store_zero_state_file(BlockIdExt block_id, td::BufferSlice state, td::Promise<td::Unit> promise) override;
   void wait_block_state(BlockHandle handle, td::uint32 priority, td::Timestamp timeout,
@@ -454,12 +454,15 @@ class ValidatorManagerImpl : public ValidatorManager {
 
   void set_next_block(BlockIdExt prev, BlockIdExt next, td::Promise<td::Unit> promise) override;
 
-  void get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) override;
+  void get_block_data_from_db(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise,
+                              ScheduleContext sched_ctx) override;
   void get_block_data_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise) override;
-  void get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) override;
-  void get_shard_state_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise) override;
+  void get_shard_state_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise,
+                               ScheduleContext sched_ctx) override;
+  void get_shard_state_from_db_short(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise,
+                                     ScheduleContext sched_ctx) override;
   void get_block_candidate_from_db(PublicKey source, BlockIdExt id, FileHash collated_data_file_hash,
-                                   td::Promise<BlockCandidate> promise) override;
+                                   td::Promise<BlockCandidate> promise, ScheduleContext sched_ctx) override;
   void get_block_proof_from_db(ConstBlockHandle handle, td::Promise<td::Ref<Proof>> promise) override;
   void get_block_proof_from_db_short(BlockIdExt id, td::Promise<td::Ref<Proof>> promise) override;
   void get_block_proof_link_from_db(ConstBlockHandle handle, td::Promise<td::Ref<ProofLink>> promise) override;
@@ -481,7 +484,8 @@ class ValidatorManagerImpl : public ValidatorManager {
   void get_top_masterchain_state(td::Promise<td::Ref<MasterchainState>> promise) override;
   void get_top_masterchain_block(td::Promise<BlockIdExt> promise) override;
   void get_top_masterchain_state_block(td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise) override;
-  void get_last_liteserver_state_block(td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise) override;
+  void get_last_liteserver_state_block(td::Promise<std::pair<td::Ref<MasterchainState>, BlockIdExt>> promise,
+                                       ScheduleContext sched_ctx) override;
 
   void send_get_block_request(BlockIdExt id, td::uint32 priority, td::Promise<ReceivedBlock> promise) override;
   void send_get_zero_state_request(BlockIdExt id, td::uint32 priority, td::Promise<td::BufferSlice> promise) override;
@@ -528,7 +532,7 @@ class ValidatorManagerImpl : public ValidatorManager {
   void add_shard_block_description(td::Ref<ShardTopBlockDescription> desc);
   void add_cached_block_candidate(ReceivedBlock block);
 
-  void register_block_handle(BlockHandle handle);
+  void register_block_handle(BlockHandle handle, ScheduleContext sched_ctx);
 
   void finished_wait_state(BlockHandle handle, td::Result<td::Ref<ShardState>> R);
   void finished_wait_data(BlockHandle handle, td::Result<td::Ref<BlockData>> R);
@@ -600,23 +604,26 @@ class ValidatorManagerImpl : public ValidatorManager {
         promise.set_error(td::Status::Error(ErrorCode::notready, "not ready"));
         return;
       }
-      queue_size_counter_ = td::actor::create_actor<QueueSizeCounter>("queuesizecounter",
-                                                                      last_masterchain_state_, actor_id(this));
+      queue_size_counter_ =
+          td::actor::create_actor<QueueSizeCounter>("queuesizecounter", last_masterchain_state_, actor_id(this));
     }
     td::actor::send_closure(queue_size_counter_, &QueueSizeCounter::get_queue_size, block_id, std::move(promise));
   }
 
-  void get_block_handle_for_litequery(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise) override;
-  void get_block_data_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise) override;
-  void get_block_state_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise) override;
+  void get_block_handle_for_litequery(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise,
+                                      ScheduleContext sched_ctx) override;
+  void get_block_data_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<BlockData>> promise,
+                                    ScheduleContext sched_ctx) override;
+  void get_block_state_for_litequery(BlockIdExt block_id, td::Promise<td::Ref<ShardState>> promise,
+                                     ScheduleContext sched_ctx) override;
   void get_block_by_lt_for_litequery(AccountIdPrefixFull account, LogicalTime lt,
-                                             td::Promise<ConstBlockHandle> promise) override;
+                                     td::Promise<ConstBlockHandle> promise) override;
   void get_block_by_unix_time_for_litequery(AccountIdPrefixFull account, UnixTime ts,
-                                                    td::Promise<ConstBlockHandle> promise) override;
+                                            td::Promise<ConstBlockHandle> promise) override;
   void get_block_by_seqno_for_litequery(AccountIdPrefixFull account, BlockSeqno seqno,
-                                                td::Promise<ConstBlockHandle> promise) override;
+                                        td::Promise<ConstBlockHandle> promise) override;
   void process_block_handle_for_litequery_error(BlockIdExt block_id, td::Result<BlockHandle> r_handle,
-                                                td::Promise<ConstBlockHandle> promise);
+                                                td::Promise<ConstBlockHandle> promise, ScheduleContext sched_ctx);
   void process_lookup_block_for_litequery_error(AccountIdPrefixFull account, int type, td::uint64 value,
                                                 td::Result<ConstBlockHandle> r_handle,
                                                 td::Promise<ConstBlockHandle> promise);

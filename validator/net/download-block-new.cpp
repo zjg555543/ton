@@ -140,7 +140,7 @@ void DownloadBlockNew::got_block_handle(BlockHandle handle) {
       }
     });
     td::actor::send_closure(validator_manager_, &ValidatorManagerInterface::get_block_data_from_db, handle_,
-                            std::move(P));
+                            std::move(P), ScheduleContext());
     return;
   }
 
@@ -227,7 +227,8 @@ void DownloadBlockNew::got_data(td::BufferSlice data) {
   BlockIdExt id;
   td::BufferSlice proof, block_data;
   bool is_link;
-  td::Status S = deserialize_block_full(*f, id, proof, block_data, is_link, overlay::Overlays::max_fec_broadcast_size());
+  td::Status S =
+      deserialize_block_full(*f, id, proof, block_data, is_link, overlay::Overlays::max_fec_broadcast_size());
   if (S.is_error()) {
     abort_query(S.move_as_error_prefix("cannot deserialize block: "));
     return;

@@ -22,6 +22,7 @@
 #include "ton/ton-io.hpp"
 #include "common/delay.h"
 #include "td/utils/filesystem.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -119,7 +120,8 @@ void AsyncStateSerializer::request_masterchain_state() {
                               });
     }
   });
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, masterchain_handle_, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, masterchain_handle_, std::move(P),
+                          ScheduleContext());
 }
 
 void AsyncStateSerializer::request_shard_state(BlockIdExt shard) {
@@ -246,6 +248,7 @@ class CachedCellDbReader : public vm::CellDbReader {
   void print_stats() const {
     LOG(WARNING) << "CachedCellDbReader stats : " << total_reqs_ << " reads, " << cached_reqs_ << " cached";
   }
+
  private:
   std::shared_ptr<vm::CellDbReader> parent_;
   std::shared_ptr<std::map<td::Bits256, td::Ref<vm::Cell>>> cache_;
@@ -270,8 +273,8 @@ void AsyncStateSerializer::PreviousStateCache::prepare_cache(ShardIdFull shard) 
     return;
   }
   td::Timer timer;
-  LOG(WARNING) << "Preloading previous persistent state for shard " << shard.to_str() << " ("
-               << cur_shards.size() << " files)";
+  LOG(WARNING) << "Preloading previous persistent state for shard " << shard.to_str() << " (" << cur_shards.size()
+               << " files)";
   std::map<td::Bits256, td::Ref<vm::Cell>> cells;
   std::function<void(td::Ref<vm::Cell>)> dfs = [&](td::Ref<vm::Cell> cell) {
     td::Bits256 hash = cell->get_hash().bits();
@@ -373,7 +376,8 @@ void AsyncStateSerializer::got_shard_handle(BlockHandle handle) {
         }
       });
 
-  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P));
+  td::actor::send_closure(manager_, &ValidatorManager::get_shard_state_from_db, handle, std::move(P),
+                          ScheduleContext());
 }
 
 void AsyncStateSerializer::got_shard_state(BlockHandle handle, td::Ref<ShardState> state,
@@ -440,7 +444,6 @@ void AsyncStateSerializer::auto_disable_serializer(bool disabled) {
     cancellation_token_source_.cancel();
   }
 }
-
 
 bool AsyncStateSerializer::need_monitor(ShardIdFull shard) {
   return opts_->need_monitor(shard);

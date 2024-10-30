@@ -19,6 +19,7 @@
 #include "archiver.hpp"
 #include "rootdb.hpp"
 #include "ton/ton-tl.hpp"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -58,7 +59,8 @@ void BlockArchiver::moved_handle() {
     td::actor::send_closure(SelfId, &BlockArchiver::got_proof, R.move_as_ok());
   });
 
-  td::actor::send_closure(archive_, &ArchiveManager::get_file, handle_, fileref::Proof{handle_->id()}, std::move(P));
+  td::actor::send_closure(archive_, &ArchiveManager::get_file, handle_, fileref::Proof{handle_->id()}, std::move(P),
+                          ScheduleContext());
 }
 
 void BlockArchiver::got_proof(td::BufferSlice data) {
@@ -81,8 +83,8 @@ void BlockArchiver::written_proof() {
     td::actor::send_closure(SelfId, &BlockArchiver::got_proof_link, R.move_as_ok());
   });
 
-  td::actor::send_closure(archive_, &ArchiveManager::get_file, handle_, fileref::ProofLink{handle_->id()},
-                          std::move(P));
+  td::actor::send_closure(archive_, &ArchiveManager::get_file, handle_, fileref::ProofLink{handle_->id()}, std::move(P),
+                          ScheduleContext());
 }
 
 void BlockArchiver::got_proof_link(td::BufferSlice data) {
@@ -104,7 +106,8 @@ void BlockArchiver::written_proof_link() {
     td::actor::send_closure(SelfId, &BlockArchiver::got_block_data, R.move_as_ok());
   });
 
-  td::actor::send_closure(archive_, &ArchiveManager::get_file, handle_, fileref::Block{handle_->id()}, std::move(P));
+  td::actor::send_closure(archive_, &ArchiveManager::get_file, handle_, fileref::Block{handle_->id()}, std::move(P),
+                          ScheduleContext());
 }
 
 void BlockArchiver::got_block_data(td::BufferSlice data) {

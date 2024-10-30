@@ -30,8 +30,8 @@ class CandidatesBuffer : public td::actor::Actor {
   void alarm() override;
 
   void add_new_candidate(BlockIdExt id, PublicKey source, FileHash collated_data_file_hash);
-  void get_block_data(BlockIdExt id, td::Promise<td::Ref<BlockData>> promise);
-  void get_block_state(BlockIdExt id, td::Promise<td::Ref<ShardState>> promise);
+  void get_block_data(BlockIdExt id, td::Promise<td::Ref<BlockData>> promise, ScheduleContext sched_ctx);
+  void get_block_state(BlockIdExt id, td::Promise<td::Ref<ShardState>> promise, ScheduleContext sched_ctx);
 
  private:
   td::actor::ActorId<ValidatorManager> manager_;
@@ -51,14 +51,14 @@ class CandidatesBuffer : public td::actor::Actor {
   };
   std::map<BlockIdExt, Candidate> candidates_;
 
-  void got_block_candidate(BlockIdExt id, td::Result<BlockCandidate> R);
+  void got_block_candidate(BlockIdExt id, td::Result<BlockCandidate> R, ScheduleContext sched_ctx);
 
-  void get_block_state_cont(BlockIdExt id, td::Ref<BlockData> data);
+  void get_block_state_cont(BlockIdExt id, td::Ref<BlockData> data, ScheduleContext sched_ctx);
   void get_block_state_cont2(td::Ref<BlockData> block, std::vector<BlockIdExt> prev,
-                             std::vector<td::Ref<ShardState>> prev_states);
+                             std::vector<td::Ref<ShardState>> prev_states, ScheduleContext sched_ctx);
 
   void finish_get_block_data(BlockIdExt id, td::Result<td::Ref<BlockData>> res);
-  void finish_get_block_state(BlockIdExt id, td::Result<td::Ref<ShardState>> res);
+  void finish_get_block_state(BlockIdExt id, td::Result<td::Ref<ShardState>> res, ScheduleContext sched_ctx);
 };
 
 }  // namespace ton::validator

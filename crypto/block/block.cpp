@@ -29,6 +29,7 @@
 #include "td/utils/misc.h"
 #include "td/utils/Random.h"
 #include "vm/fmt.hpp"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace block {
 using namespace std::literals::string_literals;
@@ -1940,6 +1941,11 @@ td::Status unpack_block_prev_blk_try(Ref<vm::Cell> block_root, const ton::BlockI
 td::Status unpack_block_prev_blk_ext(Ref<vm::Cell> block_root, const ton::BlockIdExt& id,
                                      std::vector<ton::BlockIdExt>& prev, ton::BlockIdExt& mc_blkid, bool& after_split,
                                      ton::BlockIdExt* fetch_blkid) {
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(id.counter_, "unpack_block_prev_blk_ext", elapsed);
+  };
   block::gen::Block::Record blk;
   block::gen::BlockInfo::Record info;
   block::gen::ExtBlkRef::Record mcref;  // _ ExtBlkRef = BlkMasterInfo;
@@ -2461,6 +2467,5 @@ bool MsgMetadata::operator==(const MsgMetadata& other) const {
 bool MsgMetadata::operator!=(const MsgMetadata& other) const {
   return !(*this == other);
 }
-
 
 }  // namespace block

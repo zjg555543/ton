@@ -57,7 +57,7 @@ class CellDbIn : public CellDbBase {
  public:
   using KeyHash = td::Bits256;
 
-  void load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise);
+  void load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, ScheduleContext sched_ctx);
   void store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise);
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
@@ -165,7 +165,7 @@ class CellDbIn : public CellDbBase {
 
 class CellDb : public CellDbBase {
  public:
-  void load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise);
+  void load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, ScheduleContext sched_ctx);
   void store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise);
   void update_snapshot(std::unique_ptr<td::KeyValueReader> snapshot, std::unique_ptr<td::KeyValueReader> snapshot2) {
     started_ = true;

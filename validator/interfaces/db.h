@@ -21,6 +21,7 @@
 #include "ton/ton-types.h"
 #include "validator/interfaces/block-handle.h"
 #include "validator/interfaces/validator-manager.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -31,7 +32,8 @@ class Db : public td::actor::Actor {
   virtual ~Db() = default;
 
   virtual void store_block_data(BlockHandle handle, td::Ref<BlockData> data, td::Promise<td::Unit> promise) = 0;
-  virtual void get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise) = 0;
+  virtual void get_block_data(ConstBlockHandle handle, td::Promise<td::Ref<BlockData>> promise,
+                              ScheduleContext sched_ctx) = 0;
 
   virtual void store_block_signatures(BlockHandle handle, td::Ref<BlockSignatureSet> data,
                                       td::Promise<td::Unit> promise) = 0;
@@ -45,11 +47,12 @@ class Db : public td::actor::Actor {
 
   virtual void store_block_candidate(BlockCandidate candidate, td::Promise<td::Unit> promise) = 0;
   virtual void get_block_candidate(ton::PublicKey source, BlockIdExt id, FileHash collated_data_file_hash,
-                                   td::Promise<BlockCandidate> promise) = 0;
+                                   td::Promise<BlockCandidate> promise, ScheduleContext sched_ctx) = 0;
 
   virtual void store_block_state(BlockHandle handle, td::Ref<ShardState> state,
                                  td::Promise<td::Ref<ShardState>> promise) = 0;
-  virtual void get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise) = 0;
+  virtual void get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardState>> promise,
+                               ScheduleContext sched_ctx) = 0;
   virtual void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) = 0;
   virtual void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise) = 0;
 
@@ -76,7 +79,7 @@ class Db : public td::actor::Actor {
   //virtual void get_zero_state(ZeroStateIdExt id, td::Promise<td::Ref<ShardState>> promise) = 0;
 
   virtual void store_block_handle(BlockHandle handle, td::Promise<td::Unit> promise) = 0;
-  virtual void get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise) = 0;
+  virtual void get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise, ScheduleContext sched_ctx) = 0;
 
   virtual void apply_block(BlockHandle handle, td::Promise<td::Unit> promise) = 0;
   virtual void get_block_by_lt(AccountIdPrefixFull account, LogicalTime lt, td::Promise<ConstBlockHandle> promise) = 0;

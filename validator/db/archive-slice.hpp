@@ -70,7 +70,8 @@ struct DbStatistics {
 
 class PackageWriter : public td::actor::Actor {
  public:
-  PackageWriter(std::weak_ptr<Package> package, bool async_mode = false, std::shared_ptr<PackageStatistics> statistics = nullptr)
+  PackageWriter(std::weak_ptr<Package> package, bool async_mode = false,
+                std::shared_ptr<PackageStatistics> statistics = nullptr)
       : package_(std::move(package)), async_mode_(async_mode), statistics_(std::move(statistics)) {
   }
 
@@ -104,9 +105,10 @@ class ArchiveSlice : public td::actor::Actor {
   void add_handle(BlockHandle handle, td::Promise<td::Unit> promise);
   void update_handle(BlockHandle handle, td::Promise<td::Unit> promise);
   void add_file(BlockHandle handle, FileReference ref_id, td::BufferSlice data, td::Promise<td::Unit> promise);
-  void get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise);
+  void get_handle(BlockIdExt block_id, td::Promise<BlockHandle> promise, ScheduleContext sched_ctx);
   void get_temp_handle(BlockIdExt block_id, td::Promise<ConstBlockHandle> promise);
-  void get_file(ConstBlockHandle handle, FileReference ref_id, td::Promise<td::BufferSlice> promise);
+  void get_file(ConstBlockHandle handle, FileReference ref_id, td::Promise<td::BufferSlice> promise,
+                ScheduleContext sched_ctx);
 
   /* from LTDB */
   void get_block_by_unix_time(AccountIdPrefixFull account_id, UnixTime ts, td::Promise<ConstBlockHandle> promise);
@@ -130,7 +132,7 @@ class ArchiveSlice : public td::actor::Actor {
  private:
   void before_query();
   void do_close();
-  template<typename T>
+  template <typename T>
   td::Promise<T> begin_async_query(td::Promise<T> promise);
   void end_async_query();
 
@@ -160,9 +162,7 @@ class ArchiveSlice : public td::actor::Actor {
   td::uint32 huge_transaction_size_ = 0;
   td::uint32 slice_size_{100};
 
-  enum Status {
-    st_closed, st_open, st_want_close
-  } status_ = st_closed;
+  enum Status { st_closed, st_open, st_want_close } status_ = st_closed;
   size_t active_queries_ = 0;
 
   std::string db_root_;
@@ -215,6 +215,7 @@ class ArchiveLru : public td::actor::Actor {
   }
   void on_query(td::actor::ActorId<ArchiveSlice> slice, PackageId id, size_t files_count);
   void set_permanent_slices(std::vector<PackageId> ids);
+
  private:
   size_t current_idx_ = 1;
   struct SliceInfo {

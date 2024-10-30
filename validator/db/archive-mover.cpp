@@ -19,6 +19,7 @@
 #include "archive-mover.hpp"
 #include "td/actor/MultiPromise.h"
 #include "validator/fabric.h"
+#include "tdutils/td/utils/query_stat.h"
 
 namespace ton {
 
@@ -28,7 +29,7 @@ void ArchiveFileMover::start_up() {
   auto P = td::PromiseCreator::lambda([SelfId = actor_id(this)](td::Result<BlockHandle> R) {
     td::actor::send_closure(SelfId, &ArchiveFileMover::got_block_handle1, std::move(R));
   });
-  td::actor::send_closure(archive_manager_, &ArchiveManager::get_handle, block_id_, std::move(P));
+  td::actor::send_closure(archive_manager_, &ArchiveManager::get_handle, block_id_, std::move(P), ScheduleContext());
 }
 
 void ArchiveFileMover::got_block_handle0(td::Result<BlockHandle> R) {
@@ -45,22 +46,19 @@ void ArchiveFileMover::got_block_handle0(td::Result<BlockHandle> R) {
   td::actor::send_closure(old_archive_manager_, &OldArchiveManager::read_handle, block_id_, std::move(P));
 }
 
-void ArchiveFileMover::got_block_handle1(td::Result<BlockHandle> R) {
-  if (R.is_ok()) {
-    handle_ = R.move_as_ok();
-    got_block_handle();
-    return;
-  }
+got_block_handle();
+return;
+}
 
-  if (R.error().code() != ErrorCode::notready) {
-    abort_query(R.move_as_error());
-    return;
-  }
+if (R.error().code() != ErrorCode::notready) {
+  abort_query(R.move_as_error());
+  return;
+}
 
-  auto P = td::PromiseCreator::lambda([SelfId = actor_id(this)](td::Result<BlockHandle> R) {
-    td::actor::send_closure(SelfId, &ArchiveFileMover::got_block_handle1, std::move(R));
-  });
-  td::actor::send_closure(block_db_, &BlockDb::get_block_handle, std::move(P));
+auto P = td::PromiseCreator::lambda([SelfId = actor_id(this)](td::Result<BlockHandle> R) {
+  td::actor::send_closure(SelfId, &ArchiveFileMover::got_block_handle1, std::move(R));
+});
+td::actor::send_closure(block_db_, &BlockDb::get_block_handle, std::move(P));
 }
 
 void ArchiveFileMover::got_block_handle2(td::Result<BlockHandle> R) {
@@ -263,10 +261,11 @@ void ArchiveKeyBlockMover::start_up() {
     }
   });
   if (proof_link_) {
-    td::actor::send_closure(archive_manager_, &ArchiveManager::get_file_short, fileref::ProofLink{block_id_},
-                            std::move(P));
+    td::actor::send_closure(archive_manager_, &ArchiveManager::get_file_short, -1, fileref::ProofLink{block_id_},
+                            std::move(P), ScheduleContext());
   } else {
-    td::actor::send_closure(archive_manager_, &ArchiveManager::get_file_short, fileref::Proof{block_id_}, std::move(P));
+    td::actor::send_closure(archive_manager_, &ArchiveManager::get_file_short, -1, fileref::Proof{block_id_},
+                            std::move(P), ScheduleContext());
   }
 }
 
@@ -401,7 +400,8 @@ void ArchiveMover::moved_blocks() {
     R.ensure();
     td::actor::send_closure(SelfId, &ArchiveMover::got_handle, R.move_as_ok());
   });
-  td::actor::send_closure(archive_manager_, &ArchiveManager::get_handle, masterchain_block_id_, std::move(P));
+  td::actor::send_closure(archive_manager_, &ArchiveManager::get_handle, masterchain_block_id_, std::move(P),
+                          ScheduleContext());
 }
 
 void ArchiveMover::got_handle(BlockHandle handle) {
@@ -416,7 +416,7 @@ void ArchiveMover::got_handle(BlockHandle handle) {
         S.ensure();
         td::actor::send_closure(SelfId, &ArchiveMover::got_state, td::Ref<MasterchainState>{S.move_as_ok()});
       });
-  td::actor::send_closure(cell_db_, &CellDb::load_cell, handle_->state(), std::move(P));
+  td::actor::send_closure(cell_db_, &CellDb::load_cell, handle_->state(), std::move(P), ScheduleContext());
 }
 
 void ArchiveMover::got_state(td::Ref<MasterchainState> state) {
