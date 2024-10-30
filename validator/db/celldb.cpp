@@ -452,7 +452,6 @@ void CellDbIn::migrate_cells() {
 }
 
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise) {
-  td::PerfWarningTimer timer{"load_cell", 0.01};
   int ranNum = GetDBRandomNum();
   static int64_t ranCount = 0;
   ranCount++;
