@@ -141,13 +141,19 @@ class RootDb : public Db {
 
   void run_gc(UnixTime mc_ts, UnixTime gc_ts, UnixTime archive_ttl) override;
 
+  void update_snapshot() {
+    for (const auto& cell_reader : cell_db_read_) {
+      td::actor::send_closure(cell_reader, &CellDb::update_snapshot_sub);
+    }
+  }
+
  private:
   td::actor::ActorId<ValidatorManager> validator_manager_;
   std::string root_path_;
   td::Ref<ValidatorManagerOptions> opts_;
 
   td::actor::ActorOwn<CellDb> cell_db_;
-  // td::actor::ActorOwn<CellDb> cell_db_read_[THREAD_COUNTS];
+  td::actor::ActorOwn<CellDb> cell_db_read_[THREAD_COUNTS];
   td::actor::ActorOwn<StateDb> state_db_;
   td::actor::ActorOwn<StaticFilesDb> static_files_db_;
   td::actor::ActorOwn<ArchiveManager> archive_db_;

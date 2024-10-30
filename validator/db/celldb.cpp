@@ -114,7 +114,7 @@ void CellDbIn::start_up() {
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
   LOG(INFO) << "CellDbIn::start_up. update snapshot";
   boc_->set_loader(std::make_unique<vm::CellLoader>(cell_db_->snapshot(), on_load_callback_)).ensure();
-  td::actor::send_closure(parent_, &CellDb::update_snapshot, cell_db_->snapshot(), cell_db_->snapshot());
+  td::actor::send_closure(parent_, &CellDb::update_snapshot_all);
 
   alarm_timestamp() = td::Timestamp::in(10.0);
 
@@ -201,7 +201,7 @@ void CellDbIn::store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promi
   cell_db_->commit_write_batch().ensure();
 
   boc_->set_loader(std::make_unique<vm::CellLoader>(cell_db_->snapshot(), on_load_callback_)).ensure();
-  td::actor::send_closure(parent_, &CellDb::update_snapshot, cell_db_->snapshot(), cell_db_->snapshot());
+  td::actor::send_closure(parent_, &CellDb::update_snapshot_all);
 
   promise.set_result(boc_->load_cell(cell->get_hash().as_slice()));
   if (!opts_->get_disable_rocksdb_stats()) {
@@ -338,7 +338,7 @@ void CellDbIn::gc_cont2(BlockHandle handle) {
   alarm_timestamp() = td::Timestamp::now();
 
   boc_->set_loader(std::make_unique<vm::CellLoader>(cell_db_->snapshot(), on_load_callback_)).ensure();
-  td::actor::send_closure(parent_, &CellDb::update_snapshot, cell_db_->snapshot(), cell_db_->snapshot());
+  td::actor::send_closure(parent_, &CellDb::update_snapshot_all);
 
   DCHECK(get_block(key_hash).is_error());
   if (!opts_->get_disable_rocksdb_stats()) {
@@ -440,7 +440,7 @@ void CellDbIn::migrate_cells() {
   }
   cell_db_->commit_write_batch().ensure();
   boc_->set_loader(std::make_unique<vm::CellLoader>(cell_db_->snapshot(), on_load_callback_)).ensure();
-  td::actor::send_closure(parent_, &CellDb::update_snapshot, cell_db_->snapshot(), cell_db_->snapshot());
+  td::actor::send_closure(parent_, &CellDb::update_snapshot_all);
 
   double time = timer.elapsed();
   LOG(DEBUG) << "CellDb migration: migrated=" << migrated << " checked=" << checked << " time=" << time;
@@ -455,6 +455,17 @@ void CellDbIn::migrate_cells() {
     delay_action([SelfId = actor_id(this)] { td::actor::send_closure(SelfId, &CellDbIn::migrate_cells); },
                  td::Timestamp::in(time * 2));
   }
+}
+
+void CellDb::update_snapshot_all() {
+  update_snapshot_sub();
+  td::actor::send_closure(root_db_, &RootDb::update_snapshot);
+}
+void CellDb::update_snapshot_sub() {
+  started_ = true;
+
+  boc_->set_loader(std::make_unique<vm::CellLoader>(rocks_db_->snapshot(), on_load_callback_)).ensure();
+  td::actor::send_closure(cell_db_read_, &CellDbIn::update_snapshot, rocks_db_->snapshot());
 }
 
 void CellDb::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, ScheduleContext sched_ctx) {

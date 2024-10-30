@@ -167,11 +167,9 @@ class CellDb : public CellDbBase {
  public:
   void load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise, ScheduleContext sched_ctx);
   void store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise);
-  void update_snapshot(std::unique_ptr<td::KeyValueReader> snapshot, std::unique_ptr<td::KeyValueReader> snapshot2) {
-    started_ = true;
-    boc_->set_loader(std::make_unique<vm::CellLoader>(std::move(snapshot), on_load_callback_)).ensure();
-    td::actor::send_closure(cell_db_read_, &CellDbIn::update_snapshot, std::move(snapshot2));
-  }
+  // std::unique_ptr<td::KeyValueReader> snapshot
+  void update_snapshot_all();
+  void update_snapshot_sub();
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
 
