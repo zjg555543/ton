@@ -22,6 +22,7 @@
 #include "td/db/RocksDb.h"
 #include "td/utils/filesystem.h"
 
+#include "td/utils/logging.h"
 #include "ton/ton-tl.hpp"
 #include "ton/ton-io.hpp"
 #include "common/delay.h"
@@ -156,6 +157,7 @@ void CellDbIn::load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promi
 
 void CellDbIn::store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise) {
   td::PerfWarningTimer timer{"storecell", 0.1};
+  LOG(INFO)<< "CellDbIn::store_cell" << block_id.to_str();
   auto key_hash = get_key_hash(block_id);
   auto R = get_block(key_hash);
   // duplicate

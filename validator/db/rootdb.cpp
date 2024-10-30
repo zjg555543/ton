@@ -17,6 +17,7 @@
     Copyright 2017-2020 Telegram Systems LLP
 */
 #include "rootdb.hpp"
+#include "td/utils/logging.h"
 #include "validator/fabric.h"
 #include "archiver.hpp"
 
@@ -237,6 +238,7 @@ void RootDb::store_block_state(BlockHandle handle, td::Ref<ShardState> state,
         handle->set_state_root_hash(root_hash);
         handle->set_state_boc();
 
+        LOG(INFO) << "yus RootDb::store_block_state. promise.set_value(create_shard_state)";
         auto S = create_shard_state(handle->id(), R.move_as_ok());
         S.ensure();
 
@@ -267,6 +269,7 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
           if (R.is_error()) {
             promise.set_error(R.move_as_error());
           } else {
+            LOG(INFO) << "yus RootDb::get_block_state. promise.set_value(create_shard_state)";
             auto S = create_shard_state(handle->id(), R.move_as_ok());
             S.ensure();
             promise.set_value(S.move_as_ok());
@@ -351,7 +354,7 @@ void RootDb::store_block_handle(BlockHandle handle, td::Promise<td::Unit> promis
 
 void RootDb::get_block_handle(BlockIdExt id, td::Promise<BlockHandle> promise) {
   LOG(INFO) << "RootDb::get_block_handle mailbox: " << this->get_name() << " "
-               << this->get_actor_info_ptr()->mailbox().reader().calc_size();
+            << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   td::actor::send_closure(archive_db_, &ArchiveManager::get_handle, id, std::move(promise));
 }
 
