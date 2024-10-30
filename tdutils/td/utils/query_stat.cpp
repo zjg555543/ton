@@ -20,6 +20,7 @@ size_t QueryStat::append_stat(int64_t counter, const TimeStat&& ts) {
 }
 
 void QueryStat::update_stat(const ScheduleContext& sched_ctx) {
+  const auto finish_schedule_at = std::chrono::steady_clock::now();
   std::unique_lock lock(mutex_);
 
   auto it = this->stats_.find(sched_ctx.counter());
@@ -33,7 +34,7 @@ void QueryStat::update_stat(const ScheduleContext& sched_ctx) {
     return;
   }
 
-  it->second[sched_ctx.index()].finish_schedule_at_ = std::chrono::steady_clock::now();
+  it->second[sched_ctx.index()].finish_schedule_at_ = finish_schedule_at;
 }
 
 ScheduleContext QueryStat::start_schedule(int64_t counter, const char* tips) {
@@ -64,6 +65,9 @@ void QueryStat::execute_cost(int64_t counter, const char* tips, std::chrono::ste
 }
 
 void QueryStat::print(int64_t counter) {
+  if (counter == INVALID_COUNTER) {
+    return;
+  }
   std::shared_lock lock(mutex_);
 
   const auto it = this->stats_.find(counter);

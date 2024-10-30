@@ -86,28 +86,42 @@ LiteQuery::LiteQuery(
 
 void LiteQuery::abort_query(td::Status reason) {
   const auto query_ctx = this->query_ctx_;
-  LOG(INFO) << "aborted liteserver query: " << reason.to_string();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(query_ctx.counter(), "LiteQuery::abort_query", elapsed);
+
+    g_query_stat.print(query_ctx.counter());
+  };
+  LOG(WARNING) << "aborted liteserver query: " << reason.to_string();
   if (acc_state_promise_) {
     acc_state_promise_.set_error(std::move(reason));
   } else if (promise_) {
     promise_.set_error(std::move(reason));
   }
-  stop();
 
   g_query_stat.finish_schedule(query_ctx);
-  g_query_stat.print(query_ctx.counter());
+
+  stop();
 }
 
 void LiteQuery::abort_query_ext(td::Status reason, std::string comment) {
   const auto query_ctx = this->query_ctx_;
-  LOG(INFO) << "aborted liteserver query: " << comment << " : " << reason.to_string();
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(query_ctx.counter(), "LiteQuery::abort_query_ext", elapsed);
+
+    g_query_stat.print(query_ctx.counter());
+  };
+  LOG(WARNING) << "aborted liteserver query: " << comment << " : " << reason.to_string();
   if (promise_) {
     promise_.set_error(reason.move_as_error_prefix(comment + " : "));
   }
-  stop();
 
   g_query_stat.finish_schedule(query_ctx);
-  g_query_stat.print(query_ctx.counter());
+
+  stop();
 }
 
 bool LiteQuery::fatal_error(td::Status error) {
@@ -129,24 +143,27 @@ void LiteQuery::alarm() {
 
 bool LiteQuery::finish_query(td::BufferSlice result, bool skip_cache_update) {
   const auto query_ctx = this->query_ctx_;
+  const auto start = std::chrono::steady_clock::now();
+  SCOPE_EXIT {
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    g_query_stat.execute_cost(query_ctx.counter(), "LiteQuery::finish_query", elapsed);
+
+    g_query_stat.print(query_ctx.counter());
+  };
 
   if (use_cache_ && !skip_cache_update) {
     td::actor::send_closure(cache_, &LiteServerCache::update, cache_key_, result.clone());
   }
   if (promise_) {
     promise_.set_result(std::move(result));
-    stop();
     g_query_stat.finish_schedule(query_ctx);
-    g_query_stat.print(query_ctx.counter());
+    stop();
     return true;
   } else {
-    stop();
     g_query_stat.finish_schedule(query_ctx);
-    g_query_stat.print(query_ctx.counter());
+    stop();
     return false;
   }
-  g_query_stat.finish_schedule(query_ctx);
-  g_query_stat.print(query_ctx.counter());
 }
 
 void LiteQuery::start_up() {
