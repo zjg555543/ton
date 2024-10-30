@@ -17,7 +17,6 @@
     Copyright 2017-2020 Telegram Systems LLP
 */
 #include "vm/db/DynamicBagOfCellsDb.h"
-#include "td/utils/logging.h"
 #include "vm/db/CellStorage.h"
 #include "vm/db/CellHashTable.h"
 
@@ -100,7 +99,6 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     executor->execute_async([executor, loader = *loader_, hash = CellHash::from_slice(hash), db = this,
                              ext_cell_creator = std::move(ext_cell_creator),
                              promise = std::move(promise_ptr)]() mutable {
-      LOG(INFO) << "load_cell_async " << hash.to_hex();
       TRY_RESULT_PROMISE((*promise), res, loader.load(hash.as_slice(), true, ext_cell_creator));
       if (res.status != CellLoader::LoadResult::Ok) {
         promise->set_error(td::Status::Error("cell not found 1"));
@@ -349,7 +347,8 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     }
 
     bool not_in_db = false;
-    for_each(info, [&not_in_db, this](auto &child_info) { not_in_db |= !dfs_new_cells_in_db(child_info); }, false);
+    for_each(
+        info, [&not_in_db, this](auto &child_info) { not_in_db |= !dfs_new_cells_in_db(child_info); }, false);
 
     if (not_in_db) {
       CHECK(!info.in_db);

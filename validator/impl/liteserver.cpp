@@ -20,7 +20,6 @@
 #include "td/utils/Slice.h"
 #include "td/utils/common.h"
 #include "td/utils/crypto.h"
-#include "td/utils/logging.h"
 #include "td/utils/overloaded.h"
 #include "auto/tl/lite_api.h"
 #include "auto/tl/lite_api.hpp"
@@ -628,9 +627,6 @@ bool LiteQuery::request_mc_proof(BlockIdExt blkid, int mode) {
 }
 
 bool LiteQuery::request_mc_block_state(BlockIdExt blkid) {
-  LOG(INFO) << "yus LiteQuery::request_mc_block_state. requesting state for block (" << blkid.to_str() << ")"
-            << "LiteQuery mailbox: " << this->get_name() << " "
-            << this->get_actor_info_ptr()->mailbox().reader().calc_size();
   td::PerfWarningTimer timer{"LiteQuery::request_mc_block_state", 0.01};
   if (!blkid.is_masterchain() || !blkid.is_valid_full()) {
     return fatal_error("reference block must belong to the masterchain");
@@ -836,7 +832,6 @@ void LiteQuery::perform_getAccountState(BlockIdExt blkid, WorkchainId workchain,
         manager_, &ton::validator::ValidatorManager::get_last_liteserver_state_block,
         [Self = actor_id(this)](td::Result<std::pair<Ref<ton::validator::MasterchainState>, BlockIdExt>> res) -> void {
           if (res.is_error()) {
-            LOG(INFO) << "yus BlockIdExt " << BlockIdExt().to_str() << " " << res.move_as_error().to_string();
             td::actor::send_closure(Self, &LiteQuery::abort_query, res.move_as_error());
           } else {
             auto pair = res.move_as_ok();
