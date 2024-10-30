@@ -264,17 +264,16 @@ void RootDb::get_block_state(ConstBlockHandle handle, td::Promise<td::Ref<ShardS
             promise.set_value(S.move_as_ok());
           }
         });
-    td::actor::send_closure(cell_db_, &CellDb::load_cell, handle->state(), std::move(P));
 
-    // int ranNum = GetDBRandomNum();
-    // static int64_t ranCount = 0;
-    // ranCount++;
-    // if (ranCount % 1000 == 0) {
-      // LOG(ERROR) << "RootDb mailbox: " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
-      // ranCount = 0;
-    // }
+    int ranNum = GetDBRandomNum();
+    static int64_t ranCount = 0;
+    ranCount++;
+    if (ranCount % 1000 == 0) {
+      LOG(ERROR) << "RootDb mailbox: " << this->get_name() << " " << this->get_actor_info_ptr()->mailbox().reader().calc_size() << ", ranNum: " << ranNum;
+      ranCount = 0;
+    }
 
-    // td::actor::send_closure(cell_db_read_[ranNum], &CellDb::load_cell, handle->state(), std::move(P));
+    td::actor::send_closure(cell_db_read_[ranNum], &CellDb::load_cell, handle->state(), std::move(P));
   } else {
     promise.set_error(td::Status::Error(ErrorCode::notready, "state not in db"));
   }
@@ -432,9 +431,9 @@ void RootDb::start_up() {
   auto rock_db = std::make_shared<td::RocksDb>(td::RocksDb::open(path, std::move(db_options)).move_as_ok());
 
   cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
-  // for (int i = 0; i < THREAD_COUNTS; i++){
-    // cell_db_read_[i] = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
-  // }
+  for (int i = 0; i < THREAD_COUNTS; i++){
+    cell_db_read_[i] = td::actor::create_actor<CellDb>("celldb", actor_id(this), path, opts_, rock_db);
+  }
   // cell_db_ = td::actor::create_actor<CellDb>("celldb", actor_id(this), root_path_ + "/celldb/", opts_);
   state_db_ = td::actor::create_actor<StateDb>("statedb", actor_id(this), root_path_ + "/state/");
   static_files_db_ = td::actor::create_actor<StaticFilesDb>("staticfilesdb", actor_id(this), root_path_ + "/static/");
