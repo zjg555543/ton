@@ -18,7 +18,6 @@
 */
 #include "shard.hpp"
 #include "message-queue.hpp"
-#include "td/utils/logging.h"
 #include "validator-set.hpp"
 #include "vm/boc.h"
 #include "td/db/utils/BlobView.h"
@@ -87,7 +86,6 @@ td::Status ShardStateQ::init() {
           -668, "cannot initialize shardchain state without either a root cell or a BufferSlice with serialized data");
     }
 #if LAZY_STATE_DESERIALIZE
-    LOG(INFO) << " yus 1";
     vm::StaticBagOfCellsDbLazy::Options options;
     options.check_crc32c = true;
     auto res = vm::StaticBagOfCellsDbLazy::create(td::BufferSliceBlobView::create(data.clone()), options);
@@ -105,7 +103,6 @@ td::Status ShardStateQ::init() {
     auto res3 = boc->get_root_cell(0);
     bocs_.clear();
     bocs_.push_back(std::move(boc));
-    LOG(INFO) << " yus 2";
 #else
     auto res3 = vm::std_boc_deserialize(data.as_slice());
 #endif
@@ -134,7 +131,6 @@ td::Status ShardStateQ::init() {
                                        " contains BlockId " + hdr_id.to_str() +
                                        " different from the one originally required");
   }
-  LOG(INFO) << " yus 3";
   if (info.r1.master_ref.write().fetch_long(1)) {
     BlockIdExt mc_id;
     if (!block::tlb::t_ExtBlkRef.unpack(info.r1.master_ref, mc_id, nullptr)) {
@@ -144,7 +140,6 @@ td::Status ShardStateQ::init() {
   } else {
     master_ref = {};
   }
-  LOG(INFO) << " yus 4";
   return td::Status::OK();
 }
 
@@ -361,9 +356,7 @@ td::Result<Ref<MasterchainStateQ>> MasterchainStateQ::fetch(const BlockIdExt& _i
                              "invalid masterchain block/state id passed for creating a new masterchain state object");
   }
   Ref<MasterchainStateQ> res{true, _id, std::move(_root), std::move(_data)};
-  LOG(INFO) << " yus MasterchainStateQ::fetch(" << _id.to_str() << ") mc_init start ";
   td::Status err = res.unique_write().mc_init();
-  LOG(INFO) << " yus MasterchainStateQ::fetch(" << _id.to_str() << ") make_init end ";
   if (err.is_error()) {
     return err;
   } else {
@@ -383,31 +376,25 @@ td::Status MasterchainStateQ::mc_reinit() {
   auto res = block::ConfigInfo::extract_config(
       root_cell(), block::ConfigInfo::needStateRoot | block::ConfigInfo::needValidatorSet |
                        block::ConfigInfo::needShardHashes | block::ConfigInfo::needPrevBlocks);
-  LOG(INFO) << " yus MasterchainStateQ::mc_reinit() ";
   cur_validators_.reset();
   next_validators_.reset();
-  LOG(INFO) << " yus MasterchainStateQ::mc_reinit() ";
   if (res.is_error()) {
     return res.move_as_error();
   }
   config_ = res.move_as_ok();
-  LOG(INFO) << " yus MasterchainStateQ::mc_reinit() ";
   CHECK(config_);
   CHECK(config_->set_block_id_ext(get_block_id()));
 
-  LOG(INFO) << " yus MasterchainStateQ::mc_reinit() ";
   auto cv_root = config_->get_config_param(35, 34);
   if (cv_root.not_null()) {
     TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(cv_root)));
     cur_validators_ = std::move(validators);
   }
-  LOG(INFO) << " yus MasterchainStateQ::mc_reinit() ";
   auto nv_root = config_->get_config_param(37, 36);
   if (nv_root.not_null()) {
     TRY_RESULT(validators, block::Config::unpack_validator_set(std::move(nv_root)));
     next_validators_ = std::move(validators);
   }
-  LOG(INFO) << " yus MasterchainStateQ::mc_reinit() ";
 
   zerostate_id_ = config_->get_zerostate_id();
   return td::Status::OK();
