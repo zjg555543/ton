@@ -63,7 +63,6 @@ class CellDbIn : public CellDbBase {
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
 
   void update_snapshot(std::unique_ptr<td::KeyValueReader> snapshot) {
-    LOG(INFO) << "CellDbIn::update_snapshot";
     boc_->set_loader(std::make_unique<vm::CellLoader>(std::move(snapshot), on_load_callback_)).ensure();
   }
 
@@ -169,7 +168,6 @@ class CellDb : public CellDbBase {
   void load_cell(RootHash hash, td::Promise<td::Ref<vm::DataCell>> promise);
   void store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promise<td::Ref<vm::DataCell>> promise);
   void update_snapshot(std::unique_ptr<td::KeyValueReader> snapshot, std::unique_ptr<td::KeyValueReader> snapshot2) {
-    LOG(INFO) << "CellDb::update_snapshot. update self and reader";
     started_ = true;
     boc_->set_loader(std::make_unique<vm::CellLoader>(std::move(snapshot), on_load_callback_)).ensure();
     td::actor::send_closure(cell_db_read_, &CellDbIn::update_snapshot, std::move(snapshot2));
@@ -177,8 +175,7 @@ class CellDb : public CellDbBase {
   void get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise);
   void get_last_deleted_mc_state(td::Promise<BlockSeqno> promise);
 
-  CellDb(td::actor::ActorId<RootDb> root_db, std::string path, td::Ref<ValidatorManagerOptions> opts,
-         std::shared_ptr<vm::KeyValue> rocks_db)
+  CellDb(td::actor::ActorId<RootDb> root_db, std::string path, td::Ref<ValidatorManagerOptions> opts, std::shared_ptr<vm::KeyValue> rocks_db)
       : root_db_(root_db), path_(path), opts_(opts), rocks_db_(rocks_db) {
   }
 
