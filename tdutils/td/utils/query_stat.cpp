@@ -3,9 +3,11 @@
 #include <sstream>
 #include <mutex>
 
+// #define ENABLE_STATISTICS
 QueryStat g_query_stat;
 
 size_t QueryStat::append_stat(int64_t counter, const TimeStat&& ts) {
+#ifdef ENABLE_STATISTICS
   std::unique_lock lock(mutex_);
 
   auto it = this->stats_.find(counter);
@@ -17,9 +19,13 @@ size_t QueryStat::append_stat(int64_t counter, const TimeStat&& ts) {
     it->second.push_back(ts);
     return it->second.size() - 1;
   }
+#else
+  return INVALID_INDEX;
+#endif  // ENABLE_STATISTICS
 }
 
 void QueryStat::update_stat(const ScheduleContext& sched_ctx) {
+#ifdef ENABLE_STATISTICS
   const auto finish_schedule_at = std::chrono::steady_clock::now();
   std::unique_lock lock(mutex_);
 
@@ -35,6 +41,7 @@ void QueryStat::update_stat(const ScheduleContext& sched_ctx) {
   }
 
   it->second[sched_ctx.index()].finish_schedule_at_ = finish_schedule_at;
+#endif  // ENABLE_STATISTICS
 }
 
 ScheduleContext QueryStat::start_schedule(int64_t counter, const char* tips) {
@@ -65,6 +72,7 @@ void QueryStat::execute_cost(int64_t counter, const char* tips, std::chrono::ste
 }
 
 void QueryStat::print(int64_t counter) {
+#ifdef ENABLE_STATISTICS
   if (counter == INVALID_COUNTER) {
     return;
   }
@@ -103,4 +111,5 @@ void QueryStat::print(int64_t counter) {
   }
 
   LOG(WARNING) << "query stat counter:" << counter << ". " << buf.str();
+#endif  // ENABLE_STATISTICS
 }
