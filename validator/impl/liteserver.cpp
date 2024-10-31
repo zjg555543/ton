@@ -1453,6 +1453,9 @@ void LiteQuery::finish_getAccountState(td::BufferSlice shard_proof) {
   };
   Ref<vm::Cell> proof1, proof2;
   if (!make_state_root_proof(proof1)) {
+    g_query_stat.execute_cost(this->query_ctx_.counter(),
+                              "LiteQuery::finish_getAccountState make_state_root_proof failed",
+                              std::chrono::steady_clock::duration(0));
     return;
   }
   vm::MerkleProofBuilder pb{state_->root_cell()};
@@ -1473,6 +1476,10 @@ void LiteQuery::finish_getAccountState(td::BufferSlice shard_proof) {
     rconfig->set_block_id_ext(mc_state_->get_block_id());
     acc_state_promise_.set_value(
         std::make_tuple(std::move(acc_csr), sstate.gen_utime, sstate.gen_lt, std::move(rconfig)));
+
+    g_query_stat.execute_cost(this->query_ctx_.counter(),
+                              "LiteQuery::finish_getAccountState mode_ & 0x80000000 is true",
+                              std::chrono::steady_clock::duration(0));
     return;
   }
 
@@ -1494,6 +1501,10 @@ void LiteQuery::finish_getAccountState(td::BufferSlice shard_proof) {
     if (!mc_state_.is_null()) {
       finish_runSmcMethod(std::move(shard_proof), proof.move_as_ok(), std::move(acc_root), sstate.gen_utime,
                           sstate.gen_lt);
+
+      g_query_stat.execute_cost(this->query_ctx_.counter(),
+                                "LiteQuery::finish_getAccountState mode_ & 0x10000 is true and mc_state_ not null",
+                                std::chrono::steady_clock::duration(0));
       return;
     }
     shard_proof_ = std::move(shard_proof);
@@ -1509,6 +1520,8 @@ void LiteQuery::finish_getAccountState(td::BufferSlice shard_proof) {
       return;
     }
     request_mc_block_data_state(master_ref.value());
+    g_query_stat.execute_cost(this->query_ctx_.counter(), "LiteQuery::finish_getAccountState mode_ & 0x10000 is true ",
+                              std::chrono::steady_clock::duration(0));
     return;
   }
   td::BufferSlice data;
@@ -1540,6 +1553,9 @@ void LiteQuery::finish_getAccountState(td::BufferSlice shard_proof) {
   auto b = ton::create_serialize_tl_object<ton::lite_api::liteServer_accountState>(
       ton::create_tl_lite_block_id(base_blk_id_), ton::create_tl_lite_block_id(blk_id_), std::move(shard_proof),
       proof.move_as_ok(), std::move(data));
+
+  g_query_stat.execute_cost(this->query_ctx_.counter(), "LiteQuery::finish_getAccountState begin finish_query",
+                            std::chrono::steady_clock::duration(0));
   finish_query(std::move(b));
 }
 
