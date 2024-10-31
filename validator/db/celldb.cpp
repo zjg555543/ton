@@ -114,7 +114,7 @@ void CellDbIn::start_up() {
   boc_->set_celldb_compress_depth(opts_->get_celldb_compress_depth());
   LOG(INFO) << "CellDbIn::start_up. update snapshot";
   boc_->set_loader(std::make_unique<vm::CellLoader>(cell_db_->snapshot(), on_load_callback_)).ensure();
-  td::actor::send_closure(parent_, &CellDb::update_snapshot_all);
+  td::actor::send_closure(parent_, &CellDb::update_snapshot_sub);
 
   alarm_timestamp() = td::Timestamp::in(10.0);
 
