@@ -17,6 +17,7 @@
     Copyright 2017-2020 Telegram Systems LLP
 */
 #include "vm/db/DynamicBagOfCellsDb.h"
+#include "td/utils/logging.h"
 #include "vm/db/CellStorage.h"
 #include "vm/db/CellHashTable.h"
 
@@ -66,16 +67,25 @@ struct CellInfo {
 
   struct Eq {
     using is_transparent = void;  // Pred to use
-    bool operator()(const CellInfo &info, const CellInfo &other_info) const { return info.key() == other_info.key();}
-    bool operator()(const CellInfo &info, td::Slice hash) const { return info.key().as_slice() == hash;}
-    bool operator()(td::Slice hash, const CellInfo &info) const { return info.key().as_slice() == hash;}
-
+    bool operator()(const CellInfo &info, const CellInfo &other_info) const {
+      return info.key() == other_info.key();
+    }
+    bool operator()(const CellInfo &info, td::Slice hash) const {
+      return info.key().as_slice() == hash;
+    }
+    bool operator()(td::Slice hash, const CellInfo &info) const {
+      return info.key().as_slice() == hash;
+    }
   };
   struct Hash {
     using is_transparent = void;  // Pred to use
     using transparent_key_equal = Eq;
-    size_t operator()(td::Slice hash) const { return cell_hash_slice_hash(hash); }
-    size_t operator()(const CellInfo &info) const { return cell_hash_slice_hash(info.key().as_slice());}
+    size_t operator()(td::Slice hash) const {
+      return cell_hash_slice_hash(hash);
+    }
+    size_t operator()(const CellInfo &info) const {
+      return cell_hash_slice_hash(info.key().as_slice());
+    }
   };
 };
 
@@ -119,29 +129,28 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     }
     SimpleExtCellCreator ext_cell_creator(cell_db_reader_);
     auto promise_ptr = std::make_shared<td::Promise<Ref<DataCell>>>(std::move(promise));
-    executor->execute_async(
-        [executor, loader = *loader_, hash = CellHash::from_slice(hash), db = this,
-         ext_cell_creator = std::move(ext_cell_creator), promise = std::move(promise_ptr)]() mutable {
-          TRY_RESULT_PROMISE((*promise), res, loader.load(hash.as_slice(), true, ext_cell_creator));
-          if (res.status != CellLoader::LoadResult::Ok) {
-            promise->set_error(td::Status::Error("cell not found"));
-            return;
-          }
-          Ref<Cell> cell = res.cell();
-          executor->execute_sync([hash, db, res = std::move(res),
-                                  ext_cell_creator = std::move(ext_cell_creator)]() mutable {
-            db->hash_table_.apply(hash.as_slice(), [&](CellInfo &info) {
-              db->update_cell_info_loaded(info, hash.as_slice(), std::move(res));
-            });
-            for (auto &ext_cell : ext_cell_creator.get_created_cells()) {
-              auto ext_cell_hash = ext_cell->get_hash();
-              db->hash_table_.apply(ext_cell_hash.as_slice(), [&](CellInfo &info) {
-                db->update_cell_info_created_ext(info, std::move(ext_cell));
-              });
-            }
-          });
-          promise->set_result(std::move(cell));
+    executor->execute_async([executor, loader = *loader_, hash = CellHash::from_slice(hash), db = this,
+                             ext_cell_creator = std::move(ext_cell_creator),
+                             promise = std::move(promise_ptr)]() mutable {
+      TRY_RESULT_PROMISE((*promise), res, loader.load(hash.as_slice(), true, ext_cell_creator));
+      if (res.status != CellLoader::LoadResult::Ok) {
+        promise->set_error(td::Status::Error("cell not found"));
+        return;
+      }
+      Ref<Cell> cell = res.cell();
+      executor->execute_sync([hash, db, res = std::move(res),
+                              ext_cell_creator = std::move(ext_cell_creator)]() mutable {
+        db->hash_table_.apply(hash.as_slice(), [&](CellInfo &info) {
+          db->update_cell_info_loaded(info, hash.as_slice(), std::move(res));
         });
+        for (auto &ext_cell : ext_cell_creator.get_created_cells()) {
+          auto ext_cell_hash = ext_cell->get_hash();
+          db->hash_table_.apply(ext_cell_hash.as_slice(),
+                                [&](CellInfo &info) { db->update_cell_info_created_ext(info, std::move(ext_cell)); });
+        }
+      });
+      promise->set_result(std::move(cell));
+    });
   }
   CellInfo &get_cell_info_force(td::Slice hash) {
     return hash_table_.apply(hash, [&](CellInfo &info) { update_cell_info_force(info, hash); });
@@ -240,7 +249,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     celldb_compress_depth_ = value;
   }
 
-  vm::ExtCellCreator& as_ext_cell_creator() override {
+  vm::ExtCellCreator &as_ext_cell_creator() override {
     return *this;
   }
 
@@ -260,8 +269,9 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
 
   class SimpleExtCellCreator : public ExtCellCreator {
    public:
-    explicit SimpleExtCellCreator(std::shared_ptr<CellDbReader> cell_db_reader) :
-        cell_db_reader_(std::move(cell_db_reader)) {}
+    explicit SimpleExtCellCreator(std::shared_ptr<CellDbReader> cell_db_reader)
+        : cell_db_reader_(std::move(cell_db_reader)) {
+    }
 
     td::Result<Ref<Cell>> ext_cell(Cell::LevelMask level_mask, td::Slice hash, td::Slice depth) override {
       TRY_RESULT(ext_cell, DynamicBocExtCell::create(PrunnedCellInfo{level_mask, hash, depth},
@@ -270,7 +280,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
       return std::move(ext_cell);
     }
 
-    std::vector<Ref<Cell>>& get_created_cells() {
+    std::vector<Ref<Cell>> &get_created_cells() {
       return created_cells_;
     }
 
@@ -373,8 +383,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     }
 
     bool not_in_db = false;
-    for_each(
-        info, [&not_in_db, this](auto &child_info) { not_in_db |= !dfs_new_cells_in_db(child_info); }, false);
+    for_each(info, [&not_in_db, this](auto &child_info) { not_in_db |= !dfs_new_cells_in_db(child_info); }, false);
 
     if (not_in_db) {
       CHECK(!info.in_db);
@@ -642,7 +651,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
 
     CellHashTable<CellInfo2> cells_;
 
-    std::queue<CellInfo2*> load_queue_;
+    std::queue<CellInfo2 *> load_queue_;
     td::uint32 active_load_ = 0;
     td::uint32 max_parallel_load_ = 4;
   };
@@ -655,12 +664,14 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
       return;
     }
     if (is_prepared_for_commit()) {
+      LOG(INFO) << "prepare_commit_async: ";
       promise.set_result(td::Unit());
       return;
     }
     pca_state_ = std::make_unique<PrepareCommitAsyncState>();
     pca_state_->executor_ = std::move(executor);
     pca_state_->promise_ = std::move(promise);
+    LOG(INFO) << "yus prepare_commit_async: to_inc=" << to_inc_.size() << " to_dec=" << to_dec_.size();
     for (auto &new_cell : to_inc_) {
       dfs_new_cells_in_db_async(new_cell);
     }
@@ -705,10 +716,13 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
       return;
     }
     ++pca_state_->active_load_;
+    LOG(INFO) << "yus pca_load_from_db 0: " << info->info->cell->get_hash().to_hex();
     pca_state_->executor_->execute_async(
         [db = this, info, executor = pca_state_->executor_, loader = *loader_]() mutable {
           auto res = loader.load_refcnt(info->info->cell->get_hash().as_slice()).move_as_ok();
+          LOG(INFO) << "yus pca_load_from_db 1: " << info->info->cell->get_hash().to_hex() << " " << res.refcnt();
           executor->execute_sync([db, info, res = std::move(res)]() {
+            LOG(INFO) << "yus pca_load_from_db 2: active_load_" << db->pca_state_->active_load_;
             --db->pca_state_->active_load_;
             db->pca_process_load_queue();
             db->pca_set_in_db(info, std::move(res));
@@ -725,6 +739,7 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
   }
 
   void pca_set_in_db(PrepareCommitAsyncState::CellInfo2 *info, CellLoader::LoadResult result) {
+    LOG(INFO) << " yus pca_set_in_db: " << info->info->cell->get_hash().to_hex();
     info->info->sync_with_db = true;
     if (result.status == CellLoader::LoadResult::Ok) {
       info->info->in_db = true;
@@ -805,7 +820,6 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
     pca_state_->promise_.set_result(td::Unit());
     pca_state_ = {};
   }
-
 };
 }  // namespace
 

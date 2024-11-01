@@ -160,8 +160,10 @@ class CellDbIn : public CellDbBase {
   std::queue<td::Promise<td::Unit>> action_queue_;
 
   void release_db() {
+    LOG(INFO) << "yus release_db";
     db_busy_ = false;
     while (!db_busy_ && !action_queue_.empty()) {
+      LOG(INFO) << "yus release_db: action_queue_.size()=" << action_queue_.size();
       auto action = std::move(action_queue_.front());
       action_queue_.pop();
       action.set_value(td::Unit());

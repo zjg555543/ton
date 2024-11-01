@@ -24,6 +24,7 @@
 #include "td/db/RocksDb.h"
 #include "rocksdb/utilities/optimistic_transaction_db.h"
 
+#include "td/utils/logging.h"
 #include "ton/ton-tl.hpp"
 #include "ton/ton-io.hpp"
 #include "common/delay.h"
@@ -198,6 +199,7 @@ void CellDbIn::store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promi
   }
 
   boc_->inc(cell);
+  LOG(INFO) << "yus Storing state " << block_id.to_str();
   db_busy_ = true;
   boc_->prepare_commit_async(async_executor, [=, this, SelfId = actor_id(this), timer = std::move(timer),
                                               timer_prepare = td::Timer{}, promise = std::move(promise),
@@ -255,11 +257,10 @@ void CellDbIn::store_cell(BlockIdExt block_id, td::Ref<vm::Cell> cell, td::Promi
 
 void CellDbIn::get_cell_db_reader(td::Promise<std::shared_ptr<vm::CellDbReader>> promise) {
   if (db_busy_) {
-    action_queue_.push(
-        [self = this, promise = std::move(promise)](td::Result<td::Unit> R) mutable {
-          R.ensure();
-          self->get_cell_db_reader(std::move(promise));
-        });
+    action_queue_.push([self = this, promise = std::move(promise)](td::Result<td::Unit> R) mutable {
+      R.ensure();
+      self->get_cell_db_reader(std::move(promise));
+    });
     return;
   }
   promise.set_result(boc_->get_cell_db_reader());
@@ -432,6 +433,7 @@ void CellDbIn::gc_cont2(BlockHandle handle) {
   auto cell = boc_->load_cell(F.root_hash.as_slice()).move_as_ok();
 
   boc_->dec(cell);
+  LOG(INFO) << "yus GC " << handle->id().to_str() << " " << cell->get_hash().to_hex();
   db_busy_ = true;
   boc_->prepare_commit_async(
       async_executor, [this, SelfId = actor_id(this), timer_boc = std::move(timer_boc), F = std::move(F), key_hash,
