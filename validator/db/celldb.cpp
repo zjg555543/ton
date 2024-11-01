@@ -433,7 +433,9 @@ void CellDbIn::gc_cont2(BlockHandle handle) {
   auto cell = boc_->load_cell(F.root_hash.as_slice()).move_as_ok();
 
   boc_->dec(cell);
-  LOG(INFO) << "yus GC " << handle->id().to_str() << " " << cell->get_hash().to_hex();
+  if (!cell.is_null() && !handle) {
+    LOG(INFO) << "yus GC " << handle->id().to_str() << " " << cell->get_hash().to_hex();
+  }
   db_busy_ = true;
   boc_->prepare_commit_async(
       async_executor, [this, SelfId = actor_id(this), timer_boc = std::move(timer_boc), F = std::move(F), key_hash,

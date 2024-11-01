@@ -716,13 +716,17 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
       return;
     }
     ++pca_state_->active_load_;
-    LOG(INFO) << "yus pca_load_from_db 0: " << info->info->cell->get_hash().to_hex();
+    if (info != nullptr && info->info != nullptr && !(info->info->cell.is_null())) {
+      LOG(INFO) << "yus pca_load_from_db 0: " << info->info->cell->get_hash().to_hex();
+    }
+
     pca_state_->executor_->execute_async(
         [db = this, info, executor = pca_state_->executor_, loader = *loader_]() mutable {
           auto res = loader.load_refcnt(info->info->cell->get_hash().as_slice()).move_as_ok();
-          LOG(INFO) << "yus pca_load_from_db 1: " << info->info->cell->get_hash().to_hex() << " " << res.refcnt();
+          LOG(INFO) << "yus pca_load_from_db 1: " << info->info->cell->get_hash().to_hex() << " ";
           executor->execute_sync([db, info, res = std::move(res)]() {
-            LOG(INFO) << "yus pca_load_from_db 2: active_load_" << db->pca_state_->active_load_;
+            LOG(INFO) << "yus pca_load_from_db 2: active_load_ " << db->pca_state_->active_load_ << " "
+                      << " hash " << info->info->cell->get_hash().to_hex();
             --db->pca_state_->active_load_;
             db->pca_process_load_queue();
             db->pca_set_in_db(info, std::move(res));
@@ -739,7 +743,9 @@ class DynamicBagOfCellsDbImpl : public DynamicBagOfCellsDb, private ExtCellCreat
   }
 
   void pca_set_in_db(PrepareCommitAsyncState::CellInfo2 *info, CellLoader::LoadResult result) {
-    LOG(INFO) << " yus pca_set_in_db: " << info->info->cell->get_hash().to_hex();
+    if (info != nullptr && info->info != nullptr && !(info->info->cell.is_null())) {
+      LOG(INFO) << " yus pca_set_in_db: " << info->info->cell->get_hash().to_hex();
+    }
     info->info->sync_with_db = true;
     if (result.status == CellLoader::LoadResult::Ok) {
       info->info->in_db = true;
